@@ -167,42 +167,21 @@ func (m *refFrameManager) reset() {
 	m.altRef.valid = false
 }
 
-// reconstructFrame reconstructs a full frame from encoded macroblocks and stores
-// it in the provided output buffers. This is needed to build reference frames for
-// inter-frame prediction.
-//
-// For key frames: reconstructs from intra predictions.
-// For inter frames: reconstructs from motion-compensated predictions.
-func reconstructFrame(recon *refFrameBuffer, mbs []macroblock, qf QuantFactors,
-	ref *refFrameManager, frame *Frame,
-) {
-	width := recon.Width
-	height := recon.Height
-	mbW := (width + 15) / 16
-	mbH := (height + 15) / 16
-	chromaW := width / 2
-
-	for mbY := 0; mbY < mbH; mbY++ {
-		for mbX := 0; mbX < mbW; mbX++ {
-			mbIdx := mbY*mbW + mbX
-			mb := &mbs[mbIdx]
-
-			if mb.isInter {
-				// Inter-frame reconstruction: motion-compensated prediction + residual
-				reconstructInterMB(recon, mb, mbX, mbY, width, height, chromaW, qf, ref)
-			} else {
-				// Intra-frame reconstruction: intra prediction + residual
-				reconstructIntraMB(recon, mb, mbX, mbY, width, height, chromaW, qf)
-			}
-		}
-	}
+// reconstructIntraMB reconstructs a single intra-predicted macroblock, deriving
+// the neighbour context from the reconstruction itself.
+func reconstructIntraMB(recon *refFrameBuffer, mb *macroblock, mbX, mbY, width, height, chromaW int, qf QuantFactors) {
+	ctx := buildReconContext(recon, mbX, mbY, width, height, chromaW)
+	reconstructIntraMBWithContext(recon, mb, ctx, mbX, mbY, width, chromaW, qf)
 }
 
-// reconstructIntraMB reconstructs a single intra-predicted macroblock.
-func reconstructIntraMB(recon *refFrameBuffer, mb *macroblock, mbX, mbY, width, height, chromaW int, qf QuantFactors) {
-	// Build neighbor context from reconstructed frame
-	ctx := buildReconContext(recon, mbX, mbY, width, height, chromaW)
-
+// reconstructIntraMBWithContext reconstructs an intra macroblock against a
+// context the caller already has.
+//
+// The encoder analyses and reconstructs each macroblock in one step so that both
+// use the SAME context — the one derived from the reconstruction. Building it
+// twice would risk the two drifting apart, which is the defect this structure
+// exists to remove.
+func reconstructIntraMBWithContext(recon *refFrameBuffer, mb *macroblock, ctx *mbContext, mbX, mbY, width, chromaW int, qf QuantFactors) {
 	// Reconstruct luma
 	if mb.lumaMode == B_PRED {
 		reconstructLumaBPred(recon, mb, ctx, mbX, mbY, width, qf)
@@ -230,14 +209,14 @@ func buildReconContext(recon *refFrameBuffer, mbX, mbY, width, height, chromaW i
 func buildReconLumaContext(ctx *mbContext, y []byte, mbX, mbY, width, height int) {
 	if mbY > 0 {
 		aboveRow := (mbY*16 - 1) * width
-		fillAboveRowRecon(ctx.lumaAboveBuf[:], y, mbX*16, aboveRow, width, 16)
+		fillAboveRowRecon(ctx.lumaAboveBuf[:], y, mbX*16, aboveRow, width, 20)
 		ctx.lumaAbove = ctx.lumaAboveBuf[:]
 	}
 	if mbX > 0 {
 		fillLeftColRecon(ctx.lumaLeftBuf[:], y, mbX*16-1, mbY*16, width, height, 16)
 		ctx.lumaLeft = ctx.lumaLeftBuf[:]
 	}
-	ctx.lumaTopLeft = computeReconTopLeft(y, mbX*16, mbY*16, width, mbX > 0 && mbY > 0)
+	ctx.lumaTopLeft = computeReconTopLeft(y, mbX*16, mbY*16, width, mbY > 0, mbX > 0)
 }
 
 // buildReconChromaContext fills the chroma neighbor context from reconstructed frame.
@@ -255,18 +234,25 @@ func buildReconChromaContext(ctx *mbContext, cb, cr []byte, mbX, mbY, chromaW, c
 		ctx.chromaLeftU = ctx.chromaLeftUBuf[:]
 		ctx.chromaLeftV = ctx.chromaLeftVBuf[:]
 	}
-	hasCorner := mbX > 0 && mbY > 0
-	ctx.chromaTopLeftU = computeReconTopLeft(cb, mbX*8, mbY*8, chromaW, hasCorner)
-	ctx.chromaTopLeftV = computeReconTopLeft(cr, mbX*8, mbY*8, chromaW, hasCorner)
+	ctx.chromaTopLeftU = computeReconTopLeft(cb, mbX*8, mbY*8, chromaW, mbY > 0, mbX > 0)
+	ctx.chromaTopLeftV = computeReconTopLeft(cr, mbX*8, mbY*8, chromaW, mbY > 0, mbX > 0)
 }
 
 // fillAboveRowRecon fills the above row buffer from the reconstructed plane.
 func fillAboveRowRecon(buf, src []byte, startCol, rowOffset, planeW, count int) {
+	last := byte(127)
 	for i := 0; i < count; i++ {
 		col := startCol + i
 		if col < planeW {
 			buf[i] = src[rowOffset+col]
+			last = buf[i]
+			continue
 		}
+		// Past the right edge of the frame. This is the above-right of the last
+		// macroblock in a row, and the format replicates the last pixel of the
+		// row above rather than reading beyond it. Leaving the previous
+		// macroblock's values here instead is a silent mismatch.
+		buf[i] = last
 	}
 }
 
@@ -280,12 +266,25 @@ func fillLeftColRecon(buf, src []byte, col, startRow, planeW, planeH, count int)
 	}
 }
 
-// computeReconTopLeft returns the top-left pixel or default value.
-func computeReconTopLeft(src []byte, x, y, planeW int, hasCorner bool) byte {
-	if hasCorner {
+// computeReconTopLeft returns the pixel diagonally above and to the left of a
+// macroblock, which TM_PRED and several B_PRED sub-modes read directly.
+//
+// Outside the frame the format does not use a neutral grey. The row above the
+// frame reads 127 and the column to its left reads 129, and the corner belongs
+// to whichever of the two is outside: above the first row it is 127, and to the
+// left of the first column of any later row it is 129. Answering 128 for both
+// -- as this did -- is wrong by one or two levels, which is invisible in a key
+// frame whose sub-modes happen not to read the corner and shows up as a small
+// persistent drift the moment one does.
+func computeReconTopLeft(src []byte, x, y, planeW int, hasAbove, hasLeft bool) byte {
+	switch {
+	case hasAbove && hasLeft:
 		return src[(y-1)*planeW+(x-1)]
+	case !hasAbove:
+		return 127
+	default:
+		return 129
 	}
-	return 128
 }
 
 // reconstructLuma16x16 reconstructs luma using 16x16 prediction mode.
@@ -423,11 +422,70 @@ func reconstructInterMB(recon *refFrameBuffer, mb *macroblock, mbX, mbY, width, 
 		return
 	}
 
+	// A skipped macroblock carries no coefficients, so its reconstruction is
+	// exactly its prediction. With a zero motion vector the prediction is the
+	// co-located block of the reference, which makes the whole macroblock a
+	// straight copy -- no dequantisation, no inverse transforms, no per-4x4
+	// loop over blocks that are all zero.
+	//
+	// This is the overwhelming majority of macroblocks in a screen stream, and
+	// it was previously costing the full transform path: inverse-DCT'ing blocks
+	// of zeros and adding them to a prediction they could not change. At 1080p
+	// that was two thirds of the time spent on an inter frame.
+	if mb.skip && mb.mv == zeroMV && !hasNonZeroCoeffs(mb.y2Coeffs[:]) {
+		copyMacroblockFromRef(recon, refBuf, mbX, mbY, width, height, chromaW)
+		return
+	}
+
 	// Reconstruct luma with motion compensation
 	reconstructInterLuma(recon, mb, refBuf, mbX, mbY, width, height, qf)
 
 	// Reconstruct chroma with halved MV
 	reconstructInterChroma(recon, mb, refBuf, mbX, mbY, width, height, chromaW, qf)
+}
+
+// copyMacroblockFromRef copies one macroblock's three planes straight across
+// from the reference frame, row by row.
+//
+// Both buffers have the same geometry, so this is a run of memmoves rather than
+// the clamped per-pixel copy motion compensation needs for vectors that point
+// outside the frame -- a zero vector never does.
+func copyMacroblockFromRef(recon, refBuf *refFrameBuffer, mbX, mbY, width, height, chromaW int) {
+	x0, y0 := mbX*16, mbY*16
+	for row := 0; row < 16; row++ {
+		y := y0 + row
+		if y >= height {
+			break
+		}
+		w := 16
+		if x0+w > width {
+			w = width - x0
+		}
+		if w <= 0 {
+			break
+		}
+		off := y*width + x0
+		copy(recon.Y[off:off+w], refBuf.Y[off:off+w])
+	}
+
+	chromaH := height / 2
+	cx0, cy0 := mbX*8, mbY*8
+	for row := 0; row < 8; row++ {
+		y := cy0 + row
+		if y >= chromaH {
+			break
+		}
+		w := 8
+		if cx0+w > chromaW {
+			w = chromaW - cx0
+		}
+		if w <= 0 {
+			break
+		}
+		off := y*chromaW + cx0
+		copy(recon.Cb[off:off+w], refBuf.Cb[off:off+w])
+		copy(recon.Cr[off:off+w], refBuf.Cr[off:off+w])
+	}
 }
 
 // reconstructInterLuma reconstructs luma blocks using motion-compensated prediction.

@@ -267,65 +267,80 @@ func (e *Encoder) Encode(yuv []byte) ([]byte, error) {
 
 	isKeyFrame := e.shouldEncodeKeyFrame()
 	qf := GetQuantFactors(e.qi, e.y1DCDelta, e.y2DCDelta, e.y2ACDelta, e.uvDCDelta, e.uvACDelta)
-	mbs := e.processAllMacroblocks(frame, isKeyFrame, qf)
+	mbs, recon := e.processAllMacroblocks(frame, isKeyFrame, qf)
 
 	if isKeyFrame || !e.refFrames.hasReference(refFrameLast) {
-		return e.encodeKeyFrame(mbs, qf, frame)
+		return e.encodeKeyFrame(mbs, recon)
 	}
-	return e.encodeInterFrame(mbs, qf, frame)
+	return e.encodeInterFrame(mbs, recon)
 }
 
 // processAllMacroblocks processes all macroblocks in the frame.
-func (e *Encoder) processAllMacroblocks(frame *Frame, isKeyFrame bool, qf QuantFactors) []macroblock {
+func (e *Encoder) processAllMacroblocks(frame *Frame, isKeyFrame bool, qf QuantFactors) ([]macroblock, refFrameBuffer) {
 	mbW := (e.width + 15) / 16
 	mbH := (e.height + 15) / 16
 	chromaW := e.width / 2
 	chromaH := e.height / 2
 	mbs := make([]macroblock, mbW*mbH)
 
+	// The reconstruction is built here rather than afterwards, because each
+	// macroblock is analysed against the reconstruction of its neighbours --
+	// the same pixels the decoder will have -- and not against the source.
+	recon := e.refFrames.allocBuffer()
+	recon.valid = true
+
 	if isKeyFrame || !e.refFrames.hasReference(refFrameLast) {
-		e.processKeyFrameMBs(frame, mbs, mbW, mbH, chromaW, chromaH, qf)
+		e.processKeyFrameMBs(frame, mbs, &recon, mbW, mbH, chromaW, chromaH, qf)
 	} else {
-		e.processInterFrameMBs(frame, mbs, mbW, mbH, chromaW, chromaH, qf)
+		e.processInterFrameMBs(frame, mbs, &recon, mbW, mbH, chromaW, chromaH, qf)
 	}
-	return mbs
+	return mbs, recon
 }
 
 // processKeyFrameMBs processes macroblocks for a key frame (intra only).
-func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
+func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refFrameBuffer, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
 	for mbY := 0; mbY < mbH; mbY++ {
 		for mbX := 0; mbX < mbW; mbX++ {
 			mbIdx := mbY*mbW + mbX
 			srcY := extractLumaBlock(frame, mbX, mbY, e.width, e.height)
 			srcU, srcV := extractChromaBlocks(frame, mbX, mbY, chromaW, chromaH)
-			ctx := e.buildMBContext(frame, mbX, mbY, mbW, mbH)
+
+			// From the reconstruction, not the source.
+			ctx := buildReconContext(recon, mbX, mbY, e.width, e.height, chromaW)
 			mbs[mbIdx] = processMacroblock(srcY, srcU, srcV, ctx, qf)
+			reconstructIntraMBWithContext(recon, &mbs[mbIdx], ctx, mbX, mbY, e.width, chromaW, qf)
 		}
 	}
 }
 
 // processInterFrameMBs processes macroblocks for an inter frame (with motion estimation).
-func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
+func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *refFrameBuffer, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
 	refBuf := e.refFrames.getRef(refFrameLast)
 	for mbY := 0; mbY < mbH; mbY++ {
 		for mbX := 0; mbX < mbW; mbX++ {
 			mbIdx := mbY*mbW + mbX
 			srcY := extractLumaBlock(frame, mbX, mbY, e.width, e.height)
 			srcU, srcV := extractChromaBlocks(frame, mbX, mbY, chromaW, chromaH)
-			ctx := e.buildMBContext(frame, mbX, mbY, mbW, mbH)
+			ctx := buildReconContext(recon, mbX, mbY, e.width, e.height, chromaW)
 			mbs[mbIdx] = processInterMacroblock(srcY, srcU, srcV, refBuf, mbX, mbY, mbW, mbs, qf, ctx)
+
+			if mbs[mbIdx].isInter {
+				reconstructInterMB(recon, &mbs[mbIdx], mbX, mbY, e.width, e.height, chromaW, qf, e.refFrames)
+			} else {
+				reconstructIntraMBWithContext(recon, &mbs[mbIdx], ctx, mbX, mbY, e.width, chromaW, qf)
+			}
 		}
 	}
 }
 
 // encodeKeyFrame builds and returns the key frame bitstream.
-func (e *Encoder) encodeKeyFrame(mbs []macroblock, qf QuantFactors, frame *Frame) ([]byte, error) {
+func (e *Encoder) encodeKeyFrame(mbs []macroblock, recon refFrameBuffer) ([]byte, error) {
 	result, err := e.buildKeyFrameBitstream(mbs)
 	if err != nil {
 		return nil, err
 	}
 
-	e.reconstructAndStore(mbs, qf, frame, true, true)
+	e.reconstructAndStore(recon, true, true)
 	e.frameCount = 1
 	e.forceNextKeyFrame = false
 
@@ -353,7 +368,7 @@ func (e *Encoder) buildKeyFrameBitstream(mbs []macroblock) ([]byte, error) {
 }
 
 // encodeInterFrame builds and returns the inter frame bitstream.
-func (e *Encoder) encodeInterFrame(mbs []macroblock, qf QuantFactors, frame *Frame) ([]byte, error) {
+func (e *Encoder) encodeInterFrame(mbs []macroblock, recon refFrameBuffer) ([]byte, error) {
 	refreshGolden := e.shouldUpdateGolden()
 
 	result, err := e.buildInterFrameBitstream(mbs, refreshGolden)
@@ -361,7 +376,7 @@ func (e *Encoder) encodeInterFrame(mbs []macroblock, qf QuantFactors, frame *Fra
 		return nil, err
 	}
 
-	e.reconstructAndStore(mbs, qf, frame, false, refreshGolden)
+	e.reconstructAndStore(recon, false, refreshGolden)
 	e.frameCount++
 
 	return result, nil
@@ -425,11 +440,8 @@ func (e *Encoder) shouldEncodeKeyFrame() bool {
 // reconstructAndStore reconstructs the encoded frame and stores it as a reference.
 // For key frames, golden is also updated. For inter frames, golden is updated
 // based on the refreshGolden parameter (which must match what was signaled in the bitstream).
-func (e *Encoder) reconstructAndStore(mbs []macroblock, qf QuantFactors, frame *Frame, isKeyFrame, refreshGolden bool) {
-	recon := e.refFrames.allocBuffer()
-	recon.valid = true
-
-	reconstructFrame(&recon, mbs, qf, e.refFrames, frame)
+func (e *Encoder) reconstructAndStore(recon refFrameBuffer, isKeyFrame, refreshGolden bool) {
+	// The reconstruction was built during analysis; nothing is rebuilt here.
 
 	// Apply loop filter to reconstructed reference frame if enabled.
 	// The loop filter level is encoded in the frame header, ensuring
@@ -516,14 +528,14 @@ func (e *Encoder) buildMBContext(frame *Frame, mbX, mbY, mbW, mbH int) *mbContex
 // buildLumaContext fills the luma neighbor context from the source frame.
 func buildLumaContext(ctx *mbContext, y []byte, mbX, mbY, width, height int) {
 	if mbY > 0 {
-		fillAboveRow(ctx.lumaAboveBuf[:], y, mbX*16, (mbY*16-1)*width, width, 16)
+		fillAboveRow(ctx.lumaAboveBuf[:], y, mbX*16, (mbY*16-1)*width, width, 20)
 		ctx.lumaAbove = ctx.lumaAboveBuf[:]
 	}
 	if mbX > 0 {
 		fillLeftCol(ctx.lumaLeftBuf[:], y, mbX*16-1, mbY*16, width, height, 16)
 		ctx.lumaLeft = ctx.lumaLeftBuf[:]
 	}
-	ctx.lumaTopLeft = computeTopLeft(y, mbX*16, mbY*16, width, mbX > 0 && mbY > 0)
+	ctx.lumaTopLeft = computeTopLeft(y, mbX*16, mbY*16, width, mbY > 0, mbX > 0)
 }
 
 // buildChromaContext fills the chroma neighbor context from the source frame.
@@ -541,18 +553,25 @@ func buildChromaContext(ctx *mbContext, cb, cr []byte, mbX, mbY, chromaW, chroma
 		ctx.chromaLeftU = ctx.chromaLeftUBuf[:]
 		ctx.chromaLeftV = ctx.chromaLeftVBuf[:]
 	}
-	hasCorner := mbX > 0 && mbY > 0
-	ctx.chromaTopLeftU = computeTopLeft(cb, mbX*8, mbY*8, chromaW, hasCorner)
-	ctx.chromaTopLeftV = computeTopLeft(cr, mbX*8, mbY*8, chromaW, hasCorner)
+	ctx.chromaTopLeftU = computeTopLeft(cb, mbX*8, mbY*8, chromaW, mbY > 0, mbX > 0)
+	ctx.chromaTopLeftV = computeTopLeft(cr, mbX*8, mbY*8, chromaW, mbY > 0, mbX > 0)
 }
 
 // fillAboveRow fills the above row buffer from the source plane.
 func fillAboveRow(buf, src []byte, startCol, rowOffset, planeW, count int) {
+	last := byte(127)
 	for i := 0; i < count; i++ {
 		col := startCol + i
 		if col < planeW {
 			buf[i] = src[rowOffset+col]
+			last = buf[i]
+			continue
 		}
+		// Past the right edge of the frame. This is the above-right of the
+		// last macroblock in a row, and the format replicates the last pixel
+		// of the row above rather than reading beyond it. Leaving whatever
+		// the previous macroblock wrote here is a silent mismatch.
+		buf[i] = last
 	}
 }
 
@@ -566,12 +585,22 @@ func fillLeftCol(buf, src []byte, col, startRow, planeW, planeH, count int) {
 	}
 }
 
-// computeTopLeft returns the top-left pixel or default value.
-func computeTopLeft(src []byte, x, y, planeW int, hasCorner bool) byte {
-	if hasCorner {
+// computeTopLeft returns the pixel above and to the left, or the value the
+// format specifies when it is outside the picture.
+//
+// Those values are not a neutral 128. The row above the frame reads 127 and the
+// column to its left reads 129, and the corner belongs to whichever of the two
+// it is off. TM_PRED subtracts this pixel from every prediction, so a wrong
+// value here shifts the whole block by a constant the decoder does not apply.
+func computeTopLeft(src []byte, x, y, planeW int, hasAbove, hasLeft bool) byte {
+	switch {
+	case hasAbove && hasLeft:
 		return src[(y-1)*planeW+(x-1)]
+	case !hasAbove:
+		return 127
+	default:
+		return 129
 	}
-	return 128
 }
 
 // Width returns the configured frame width in pixels.
