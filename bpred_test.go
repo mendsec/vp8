@@ -255,7 +255,6 @@ func TestAvg3(t *testing.T) {
 
 func TestAllBModesProduceOutput(t *testing.T) {
 	// Ensure all modes produce valid output without panicking
-	var dst [16]byte
 	above := []byte{128, 100, 110, 120, 130, 140, 150, 160, 170}
 	left := []byte{90, 80, 70, 60}
 
@@ -266,13 +265,21 @@ func TestAllBModesProduceOutput(t *testing.T) {
 	}
 
 	for _, mode := range modes {
-		Predict4x4(dst[:], above, left, mode)
+		// The previous check here was `v > 255` on a byte, which cannot fire:
+		// the loop asserted nothing. What the test name claims is that every
+		// mode writes output, so check that. A pixel the predictor leaves
+		// alone keeps whatever the buffer held, so running each mode over two
+		// differently pre-filled buffers and comparing catches exactly that --
+		// only a byte actually written is identical in both.
+		var lo, hi [16]byte
+		for i := range lo {
+			lo[i], hi[i] = 0x00, 0xFF
+		}
+		Predict4x4(lo[:], above, left, mode)
+		Predict4x4(hi[:], above, left, mode)
 
-		// Check that output is in valid range
-		for i, v := range dst {
-			if v > 255 { // Always true for byte, but checks logic
-				t.Errorf("Mode %d: pixel %d has invalid value %d", mode, i, v)
-			}
+		if lo != hi {
+			t.Errorf("mode %d left pixels unwritten: %v vs %v", mode, lo, hi)
 		}
 	}
 }

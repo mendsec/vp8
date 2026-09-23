@@ -180,7 +180,10 @@ func TestDefaultCoeffProbs(t *testing.T) {
 			for ctx := 0; ctx < 3; ctx++ {
 				for tok := 0; tok < 11; tok++ {
 					p := DefaultCoeffProbs[bt][band][ctx][tok]
-					if p < 1 || p > 255 {
+					// Upper bound omitted: p is a uint8, so p > 255 is
+					// unreachable. The lower bound is the real constraint --
+					// RFC 6386 forbids a probability of 0.
+					if p < 1 {
 						t.Errorf("Invalid probability at [%d][%d][%d][%d]: %d",
 							bt, band, ctx, tok, p)
 					}
@@ -417,7 +420,8 @@ func TestCoeffHistogramOverflow(t *testing.T) {
 	h.counts[0][0][0][0][1] = large // trueCount
 
 	prob := h.computeSingleProb(128, 0, 0, 0, 0)
-	if prob < 1 || prob > 255 {
+	// prob is a uint8; only the lower bound can fail.
+	if prob < 1 {
 		t.Errorf("computeSingleProb with large counts = %d, want in [1,255]", prob)
 	}
 	// Equal counts → probability should be close to 128

@@ -922,8 +922,8 @@ func TestInterFrameFFprobe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Write IVF header
 	if err := writeIVFHeader(tmpFile, width, height, frameCount, 30); err != nil {
@@ -966,7 +966,7 @@ func TestInterFrameFFprobe(t *testing.T) {
 		}
 	}
 
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	t.Logf("encoded %d key frames and %d inter frames", keyFrameCount, interFrameCount)
 

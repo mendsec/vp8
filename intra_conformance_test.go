@@ -100,9 +100,7 @@ func intraLumaPSNR(got, want []byte) float64 {
 // sits. The swing is the signature: a frame whose macroblocks happen to
 // predict well is fine, and one where the error accumulates is not.
 func TestKeyFramesReconstructFaithfully(t *testing.T) {
-	if _, err := exec.LookPath("vpxdec"); err != nil {
-		t.Skipf("vpxdec is not installed (apt-get install vpx-tools): %v", err)
-	}
+	requireVpxdec(t)
 
 	enc, err := NewEncoder(intraWidth, intraHeight, intraFPS)
 	if err != nil {
