@@ -30,7 +30,26 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      # The conformance tests run encoder output through libvpx's reference
+      # decoder and compare the pictures that come back. They are the only
+      # tests here that ask a decoder anything, and without it they skip -- so
+      # a green run would mean "nothing panicked", not "the bitstream decodes".
+      # vpxdec is a test-time subprocess, never linked in: the package stays
+      # cgo-free.
+      #
+      # apt is the only place it comes packaged, so Linux carries the oracle
+      # and the other two runners cover portability. VP8_REQUIRE_VPXDEC makes
+      # its absence fatal there, so an install that breaks shows up red
+      # instead of reverting to a silent skip.
+      - name: Install libvpx tools (conformance oracle)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends vpx-tools
+
       - name: Run tests with race detector
+        env:
+          VP8_REQUIRE_VPXDEC: ${{ runner.os == 'Linux' && '1' || '' }}
         run: go test -race -v ./...
 
   lint:
@@ -45,7 +64,11 @@ jobs:
         with:
           go-version: '1.25'
 
+      # `latest` is what broke this job: it crossed the golangci-lint v1 -> v2
+      # boundary under an action major that only drove v1, and the binary
+      # exited with code 3 for three months. Both sides are pinned now, so the
+      # next major lands in a commit instead of in a red run.
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: latest
+          version: v2.13.2

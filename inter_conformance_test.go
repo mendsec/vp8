@@ -98,9 +98,7 @@ func lumaPSNR(got, want []byte) float64 {
 // §16-18, the same sequence decoded at 9-12 dB: parseable, and a different
 // picture from the one that was encoded.
 func TestInterFramesDecodeInLibvpx(t *testing.T) {
-	if _, err := exec.LookPath("vpxdec"); err != nil {
-		t.Skipf("vpxdec is not installed (apt-get install vpx-tools): %v", err)
-	}
+	requireVpxdec(t)
 
 	enc, err := NewEncoder(confWidth, confHeight, confFPS)
 	if err != nil {
@@ -157,5 +155,23 @@ func TestInterFramesDecodeInLibvpx(t *testing.T) {
 			t.Errorf("frame %d (%s): luma PSNR %.2f dB is too low to be a faithful encode",
 				i, kind, psnr)
 		}
+	}
+}
+
+// requireVpxdec locates libvpx's reference decoder, the conformance oracle.
+//
+// Absent, the test skips -- vpxdec is not something every contributor has
+// installed. On CI that is not good enough: the workflow installs vpx-tools
+// and an install that quietly breaks would leave the conformance tests
+// skipping while the run stays green, which is the one outcome worse than a
+// red one. Setting VP8_REQUIRE_VPXDEC there turns absence into a failure.
+func requireVpxdec(t *testing.T) {
+	t.Helper()
+
+	if _, err := exec.LookPath("vpxdec"); err != nil {
+		if os.Getenv("VP8_REQUIRE_VPXDEC") != "" {
+			t.Fatalf("VP8_REQUIRE_VPXDEC is set, but vpxdec is not installed: %v", err)
+		}
+		t.Skipf("vpxdec is not installed (apt-get install vpx-tools): %v", err)
 	}
 }
