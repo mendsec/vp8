@@ -11,10 +11,15 @@ package vp8
 //            §17 (motion vector encoding)
 
 // interMVProbs contains the VP8 default motion vector component probabilities.
-// These are used to encode/decode motion vector components.
-// Reference: RFC 6386 §17.2, Table 5
+//
+// The first row belongs to the vertical component and the second to the
+// horizontal one -- in that order, because that is the order the decoder reads
+// them in. They were previously labelled the other way round and used the other
+// way round, which coded every motion vector's rows with the columns' table.
+//
+// Reference: RFC 6386 §17.2, vp8_default_mv_context
 var interMVProbs = [2][19]uint8{
-	// Horizontal (x) component probabilities
+	// Row (vertical, dy) component probabilities
 	{
 		162,               // is_short
 		128,               // sign
@@ -24,7 +29,7 @@ var interMVProbs = [2][19]uint8{
 		147, 214, 39, 156, // short tree bits 3..6
 		128, 129, 132, 75, 145, 178, 206, 239, 254, 254, // long bits
 	},
-	// Vertical (y) component probabilities
+	// Column (horizontal, dx) component probabilities
 	{
 		164,                // is_short
 		128,                // sign
@@ -151,20 +156,12 @@ func encodeLargeMV(enc *boolEncoder, v int, probs [19]uint8) {
 // encodeMV encodes a full motion vector (dx, dy) as the difference from
 // the predicted motion vector.
 func encodeMV(enc *boolEncoder, mv, predMV motionVector) {
-	dmvX := mv.dx - predMV.dx
-	dmvY := mv.dy - predMV.dy
-
-	encodeMVComponent(enc, dmvX, interMVProbs[0])
-	encodeMVComponent(enc, dmvY, interMVProbs[1])
-}
-
-// VP8 inter-frame macroblock mode probabilities
-// Reference: RFC 6386 §11.3
-var interMBModeProbs = [4]uint8{
-	112, // P(NEARESTMV)
-	64,  // P(NEARMV)
-	128, // P(ZEROMV)
-	// NEWMV is implicit (remaining probability)
+	// Row before column. The decoder reads the vertical component first, so
+	// writing the horizontal one first hands it a vector with its axes
+	// exchanged -- and, since the two components use different probability
+	// tables, a different number of bits as well.
+	encodeMVComponent(enc, mv.dy-predMV.dy, interMVProbs[0])
+	encodeMVComponent(enc, mv.dx-predMV.dx, interMVProbs[1])
 }
 
 // encodeInterFrameHeader encodes the VP8 inter-frame (P-frame) header into
@@ -183,9 +180,11 @@ func encodeInterFrameHeaderWithProbs(enc *boolEncoder, width, height, qi int, de
 	encodeCommonFrameHeader(enc, qi, deltas, partCount, loopFilter)
 	encodeRefFrameFlags(enc, refreshGolden)
 	encodeProbUpdates(enc, probCfg)
-	encodeInterFrameProbs(enc)
+	probs := measureFrameProbs(mbs)
+	encodeInterFrameProbs(enc, probs)
+	encodeIntraModeProbUpdates(enc)
 	encodeMVProbUpdates(enc)
-	encodeInterMBModes(enc, width, mbs)
+	encodeInterMBModes(enc, width, height, mbs, probs)
 }
 
 // encodeRefFrameFlags encodes reference frame refresh and copy flags.
@@ -209,111 +208,131 @@ func encodeProbUpdates(enc *boolEncoder, probCfg *ProbConfig) {
 	}
 }
 
+// The four probabilities the inter header signals and the macroblock layer then
+// has to code with. They live here as constants so that the header and the
+// macroblock layer cannot drift apart: a value changed in one place and not the
+// other desynchronises the decoder without changing anything the encoder can
+// see for itself.
+// frameProbs are the per-frame probabilities the inter header signals and the
+// macroblock layer then codes with. They are measured from the frame rather
+// than fixed, for the same reason prob_skip_false is: a probability that does
+// not describe the frame does not merely compress worse, it prices the common
+// case at its worst. With every macroblock inter-coded against the last
+// reference -- the normal state of a screen stream -- fixed values spent about
+// 1.4 bits per macroblock saying so, which is 200 bytes a frame at 640x480
+// before any picture content is coded at all.
+type frameProbs struct {
+	skip   uint8
+	intra  uint8
+	last   uint8
+	golden uint8
+}
+
+// measureFrameProbs derives the header probabilities from the macroblocks the
+// frame actually contains.
+//
+// Each is the probability, out of 256, that the corresponding flag reads as
+// zero: prob_intra that a macroblock is intra, prob_last that an inter
+// macroblock references the last frame, prob_golden that a non-last reference
+// is golden rather than altref. All are clamped away from 0 and 256, since
+// either extreme makes the opposite case unencodable.
+func measureFrameProbs(mbs []macroblock) frameProbs {
+	p := frameProbs{skip: skipProbability(mbs), intra: 128, last: 128, golden: 128}
+	if len(mbs) == 0 {
+		return p
+	}
+
+	intra, inter, last, golden := 0, 0, 0, 0
+	for i := range mbs {
+		if !mbs[i].isInter {
+			intra++
+			continue
+		}
+		inter++
+		switch mbs[i].refFrame {
+		case refFrameLast:
+			last++
+		case refFrameGolden:
+			golden++
+		}
+	}
+
+	p.intra = clampProb(uint32(intra * 256 / len(mbs)))
+	if inter > 0 {
+		p.last = clampProb(uint32(last * 256 / inter))
+		if notLast := inter - last; notLast > 0 {
+			p.golden = clampProb(uint32(golden * 256 / notLast))
+		}
+	}
+	return p
+}
+
 // encodeInterFrameProbs encodes the inter-frame specific probability values.
-func encodeInterFrameProbs(enc *boolEncoder) {
-	enc.putBit(128, true)  // mb_no_skip_coeff
-	enc.putLiteral(255, 8) // prob_skip_false
-	enc.putLiteral(63, 8)  // prob_intra
-	enc.putLiteral(128, 8) // prob_last
-	enc.putLiteral(128, 8) // prob_golden
+func encodeInterFrameProbs(enc *boolEncoder, p frameProbs) {
+	enc.putBit(128, true) // mb_no_skip_coeff
+	enc.putLiteral(uint32(p.skip), 8)
+	enc.putLiteral(uint32(p.intra), 8)
+	enc.putLiteral(uint32(p.last), 8)
+	enc.putLiteral(uint32(p.golden), 8)
+}
+
+// mvUpdateProbs are the probabilities with which each motion-vector
+// probability-update flag is coded. They are fixed by the format, not chosen by
+// the encoder: the decoder reads these flags with exactly these values, so
+// writing them with any other probability desynchronises the arithmetic decoder
+// for the rest of the first partition — which is where every macroblock mode
+// and motion vector lives.
+//
+// Reference: RFC 6386 §17.2, vp8_mv_update_probs.
+var mvUpdateProbs = [2][19]uint8{
+	{
+		237, 246, 253, 253, 254, 254, 254, 254, 254,
+		254, 254, 254, 254, 254, 250, 250, 252, 254, 254,
+	},
+	{
+		231, 243, 245, 253, 254, 254, 254, 254, 254,
+		254, 254, 254, 254, 254, 251, 251, 254, 254, 254,
+	},
+}
+
+// encodeIntraModeProbUpdates signals that the intra mode probabilities are not
+// being updated. Both flags are mandatory in an inter frame header; omitting
+// them leaves the decoder two bits ahead of the encoder.
+//
+// Reference: RFC 6386 §9.11.
+func encodeIntraModeProbUpdates(enc *boolEncoder) {
+	enc.putBit(128, false) // intra_16x16_prob_update_flag
+	enc.putBit(128, false) // intra_chroma_prob_update_flag
 }
 
 // encodeMVProbUpdates signals no MV probability updates.
 func encodeMVProbUpdates(enc *boolEncoder) {
 	for i := 0; i < 2; i++ {
 		for j := 0; j < 19; j++ {
-			enc.putBit(128, false)
+			enc.putBit(mvUpdateProbs[i][j], false)
 		}
 	}
 }
 
 // encodeInterMBModes encodes macroblock modes for an inter frame.
-func encodeInterMBModes(enc *boolEncoder, width int, mbs []macroblock) {
+//
+// Every macroblock's mode is coded with probabilities derived from its already
+// coded neighbours, so this walks the frame in the same raster order the
+// decoder does and derives the same predictors from the same three neighbours.
+func encodeInterMBModes(enc *boolEncoder, width, height int, mbs []macroblock, probs frameProbs) {
 	mbW := (width + 15) / 16
-	aboveBModes := make([][4]intraBMode, mbW)
-	var leftBModes [4]intraBMode
+	mbH := (height + 15) / 16
 
-	for mbIdx, mb := range mbs {
+	for mbIdx := range mbs {
+		mb := &mbs[mbIdx]
 		mbX := mbIdx % mbW
-		if mbX == 0 {
-			leftBModes = [4]intraBMode{B_DC_PRED, B_DC_PRED, B_DC_PRED, B_DC_PRED}
-		}
+		mbY := mbIdx / mbW
 
-		enc.putBit(255, mb.skip)
-		encodeInterMBModeWithContext(enc, &mb, aboveBModes[mbX], leftBModes)
-		updateBPredContext(&mb, aboveBModes, &leftBModes, mbX)
+		enc.putBit(probs.skip, mb.skip)
 
-		if !mb.isInter {
-			encodeUVMode(enc, mb.chromaMode)
-		}
-	}
-}
-
-// updateBPredContext updates B_PRED context for the next macroblock.
-// Note: leftBModes is passed by pointer to allow updates to propagate to the caller.
-func updateBPredContext(mb *macroblock, aboveBModes [][4]intraBMode, leftBModes *[4]intraBMode, mbX int) {
-	if !mb.isInter && mb.lumaMode == B_PRED {
-		for i := 0; i < 4; i++ {
-			aboveBModes[mbX][i] = mb.bModes[12+i]
-		}
-		for i := 0; i < 4; i++ {
-			leftBModes[i] = mb.bModes[i*4+3]
-		}
-	} else {
-		aboveBModes[mbX] = [4]intraBMode{B_DC_PRED, B_DC_PRED, B_DC_PRED, B_DC_PRED}
-		for i := 0; i < 4; i++ {
-			leftBModes[i] = B_DC_PRED
-		}
-	}
-}
-
-// encodeInterMBModeWithContext encodes the macroblock mode for an inter-frame macroblock,
-// with proper B_PRED sub-block context from neighboring macroblocks.
-func encodeInterMBModeWithContext(enc *boolEncoder, mb *macroblock, aboveModes, leftModes [4]intraBMode) {
-	if !mb.isInter {
-		// Intra macroblock within inter frame
-		// is_inter = false
-		enc.putBit(63, false) // P(is_inter) - inter frame probability
-		// Encode intra y_mode with proper context
-		encodeYModeWithContext(enc, mb.lumaMode, mb.bModes, aboveModes, leftModes)
-		return
-	}
-
-	// Inter macroblock: is_inter = true
-	enc.putBit(63, true)
-
-	// Encode reference frame (Last, Golden, AltRef)
-	switch mb.refFrame {
-	case refFrameLast:
-		enc.putBit(128, false) // last
-	case refFrameGolden:
-		enc.putBit(128, true)  // not last
-		enc.putBit(128, false) // golden
-	case refFrameAltRef:
-		enc.putBit(128, true) // not last
-		enc.putBit(128, true) // altref
-	}
-
-	// Encode inter prediction mode
-	switch mb.interMode {
-	case mvModeNearestMV:
-		enc.putBit(interMBModeProbs[0], false) // NEARESTMV
-	case mvModeNearMV:
-		enc.putBit(interMBModeProbs[0], true)  // not NEARESTMV
-		enc.putBit(interMBModeProbs[1], false) // NEARMV
-	case mvModeZeroMV:
-		enc.putBit(interMBModeProbs[0], true)  // not NEARESTMV
-		enc.putBit(interMBModeProbs[1], true)  // not NEARMV
-		enc.putBit(interMBModeProbs[2], false) // ZEROMV
-	case mvModeNewMV:
-		enc.putBit(interMBModeProbs[0], true) // not NEARESTMV
-		enc.putBit(interMBModeProbs[1], true) // not NEARMV
-		enc.putBit(interMBModeProbs[2], true) // NEWMV
-	}
-
-	// If NEWMV, encode the motion vector difference
-	if mb.interMode == mvModeNewMV {
-		encodeMV(enc, mb.mv, mb.predMV)
+		above, left, aboveLeft := collectNeighbours(mbs, mbX, mbY, mbW)
+		near := findNearMVs(above, left, aboveLeft, mbX, mbY, mbW, mbH)
+		encodeInterMBMode(enc, mb, near, probs.intra, probs.last, probs.golden)
 	}
 }
 
