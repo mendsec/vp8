@@ -302,13 +302,16 @@ func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refF
 	for mbY := 0; mbY < mbH; mbY++ {
 		for mbX := 0; mbX < mbW; mbX++ {
 			mbIdx := mbY*mbW + mbX
-			srcY := extractLumaBlock(frame, mbX, mbY, e.width, e.height)
-			srcU, srcV := extractChromaBlocks(frame, mbX, mbY, chromaW, chromaH)
+			var srcY [256]byte
+			extractLumaBlock(&srcY, frame, mbX, mbY, e.width, e.height)
+			var srcU, srcV [64]byte
+			extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
 
 			// From the reconstruction, not the source.
-			ctx := buildReconContext(recon, mbX, mbY, e.width, e.height, chromaW)
-			mbs[mbIdx] = processMacroblock(srcY, srcU, srcV, ctx, qf)
-			reconstructIntraMBWithContext(recon, &mbs[mbIdx], ctx, mbX, mbY, e.width, chromaW, qf)
+			var ctx mbContext
+			buildReconContext(&ctx, recon, mbX, mbY, e.width, e.height, chromaW)
+			mbs[mbIdx] = processMacroblock(srcY[:], srcU[:], srcV[:], &ctx, qf)
+			reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
 		}
 	}
 }
@@ -319,15 +322,18 @@ func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *re
 	for mbY := 0; mbY < mbH; mbY++ {
 		for mbX := 0; mbX < mbW; mbX++ {
 			mbIdx := mbY*mbW + mbX
-			srcY := extractLumaBlock(frame, mbX, mbY, e.width, e.height)
-			srcU, srcV := extractChromaBlocks(frame, mbX, mbY, chromaW, chromaH)
-			ctx := buildReconContext(recon, mbX, mbY, e.width, e.height, chromaW)
-			mbs[mbIdx] = processInterMacroblock(srcY, srcU, srcV, refBuf, mbX, mbY, mbW, mbs, qf, ctx)
+			var srcY [256]byte
+			extractLumaBlock(&srcY, frame, mbX, mbY, e.width, e.height)
+			var srcU, srcV [64]byte
+			extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
+			var ctx mbContext
+			buildReconContext(&ctx, recon, mbX, mbY, e.width, e.height, chromaW)
+			mbs[mbIdx] = processInterMacroblock(srcY[:], srcU[:], srcV[:], refBuf, mbX, mbY, mbW, mbs, qf, &ctx)
 
 			if mbs[mbIdx].isInter {
 				reconstructInterMB(recon, &mbs[mbIdx], mbX, mbY, e.width, e.height, chromaW, qf, e.refFrames)
 			} else {
-				reconstructIntraMBWithContext(recon, &mbs[mbIdx], ctx, mbX, mbY, e.width, chromaW, qf)
+				reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
 			}
 		}
 	}
@@ -473,9 +479,8 @@ func (e *Encoder) shouldUpdateGolden() bool {
 	return false
 }
 
-// extractLumaBlock extracts a 16x16 luma block from the frame.
-func extractLumaBlock(frame *Frame, mbX, mbY, width, height int) []byte {
-	var srcY [256]byte
+// extractLumaBlock extracts a 16x16 luma block from the frame into dst.
+func extractLumaBlock(dst *[256]byte, frame *Frame, mbX, mbY, width, height int) {
 	for row := 0; row < 16; row++ {
 		srcRow := mbY*16 + row
 		if srcRow >= height {
@@ -486,15 +491,13 @@ func extractLumaBlock(frame *Frame, mbX, mbY, width, height int) []byte {
 			if srcCol >= width {
 				srcCol = width - 1
 			}
-			srcY[row*16+col] = frame.Y[srcRow*width+srcCol]
+			dst[row*16+col] = frame.Y[srcRow*width+srcCol]
 		}
 	}
-	return srcY[:]
 }
 
-// extractChromaBlocks extracts 8x8 U and V chroma blocks from the frame.
-func extractChromaBlocks(frame *Frame, mbX, mbY, chromaW, chromaH int) ([]byte, []byte) {
-	var srcU, srcV [64]byte
+// extractChromaBlocks extracts 8x8 U and V chroma blocks from the frame into dstU and dstV.
+func extractChromaBlocks(dstU, dstV *[64]byte, frame *Frame, mbX, mbY, chromaW, chromaH int) {
 	for row := 0; row < 8; row++ {
 		srcRow := mbY*8 + row
 		if srcRow >= chromaH {
@@ -505,11 +508,10 @@ func extractChromaBlocks(frame *Frame, mbX, mbY, chromaW, chromaH int) ([]byte, 
 			if srcCol >= chromaW {
 				srcCol = chromaW - 1
 			}
-			srcU[row*8+col] = frame.Cb[srcRow*chromaW+srcCol]
-			srcV[row*8+col] = frame.Cr[srcRow*chromaW+srcCol]
+			dstU[row*8+col] = frame.Cb[srcRow*chromaW+srcCol]
+			dstV[row*8+col] = frame.Cr[srcRow*chromaW+srcCol]
 		}
 	}
-	return srcU[:], srcV[:]
 }
 
 // buildMBContext extracts neighbor pixels for prediction.

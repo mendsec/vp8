@@ -33,7 +33,11 @@ type boolEncoder struct {
 }
 
 func newBoolEncoder() *boolEncoder {
-	return &boolEncoder{range_: 255, lowvalue: 0, count: -24}
+	return &boolEncoder{
+		buf:    make([]byte, 0, 4096),
+		range_: 255,
+		count:  -24,
+	}
 }
 
 // putBit encodes a single boolean value with the given probability of being 0.

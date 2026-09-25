@@ -170,8 +170,9 @@ func (m *refFrameManager) reset() {
 // reconstructIntraMB reconstructs a single intra-predicted macroblock, deriving
 // the neighbour context from the reconstruction itself.
 func reconstructIntraMB(recon *refFrameBuffer, mb *macroblock, mbX, mbY, width, height, chromaW int, qf QuantFactors) {
-	ctx := buildReconContext(recon, mbX, mbY, width, height, chromaW)
-	reconstructIntraMBWithContext(recon, mb, ctx, mbX, mbY, width, chromaW, qf)
+	var ctx mbContext
+	buildReconContext(&ctx, recon, mbX, mbY, width, height, chromaW)
+	reconstructIntraMBWithContext(recon, mb, &ctx, mbX, mbY, width, chromaW, qf)
 }
 
 // reconstructIntraMBWithContext reconstructs an intra macroblock against a
@@ -195,14 +196,13 @@ func reconstructIntraMBWithContext(recon *refFrameBuffer, mb *macroblock, ctx *m
 
 // buildReconContext builds neighbor context from the reconstructed frame buffer.
 // Uses fixed-size backing arrays in mbContext to avoid per-MB heap allocations.
-func buildReconContext(recon *refFrameBuffer, mbX, mbY, width, height, chromaW int) *mbContext {
-	ctx := &mbContext{}
+// The caller provides the mbContext to write into, which should be stack-allocated.
+func buildReconContext(ctx *mbContext, recon *refFrameBuffer, mbX, mbY, width, height, chromaW int) {
+	*ctx = mbContext{} // zero the struct
 	chromaH := height / 2
 
 	buildReconLumaContext(ctx, recon.Y, mbX, mbY, width, height)
 	buildReconChromaContext(ctx, recon.Cb, recon.Cr, mbX, mbY, chromaW, chromaH)
-
-	return ctx
 }
 
 // buildReconLumaContext fills the luma neighbor context from reconstructed frame.
@@ -341,10 +341,12 @@ func reconstructLumaBPred(recon *refFrameBuffer, mb *macroblock, ctx *mbContext,
 		for bx := 0; bx < 4; bx++ {
 			blockIdx := by*4 + bx
 
-			above, left := build4x4Context(by, bx, ctx, localRecon[:])
+			var aboveBuf [9]byte
+			var leftBuf [4]byte
+			build4x4Context(aboveBuf[:], leftBuf[:], by, bx, ctx, localRecon[:])
 
 			var pred4x4 [16]byte
-			Predict4x4(pred4x4[:], above, left, mb.bModes[blockIdx])
+			Predict4x4(pred4x4[:], aboveBuf[:], leftBuf[:], mb.bModes[blockIdx])
 
 			// Dequantize
 			zigzagCoeffs := mb.yCoeffs[blockIdx]

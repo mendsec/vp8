@@ -150,10 +150,10 @@ Benchmark results on a typical developer machine (results may vary):
 
 | Resolution | Time per frame | Throughput |
 |------------|----------------|------------|
-| 320×240 | ~3.3 ms | ~300 fps |
-| 640×480 | ~13 ms | ~75 fps |
-| 1280×720 | ~40 ms | ~25 fps |
-| 1920×1080 | ~92 ms | ~11 fps |
+| 320×240 | ~3.1 ms | ~320 fps |
+| 640×480 | ~12.4 ms | ~81 fps |
+| 1280×720 | ~38 ms | ~26 fps |
+| 1920×1080 | ~87 ms | ~12 fps |
 
 Note: Inter-frame encoding includes motion estimation overhead but typically produces smaller bitstreams for similar content.
 

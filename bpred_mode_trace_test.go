@@ -41,10 +41,12 @@ func TestBPredModeTrace(t *testing.T) {
 		for mbY := 0; mbY < mbH; mbY++ {
 			for mbX := 0; mbX < mbW; mbX++ {
 				mbIdx := mbY*mbW + mbX
-				srcY := extractLumaBlock(frame, mbX, mbY, tc.w, tc.h)
-				srcU, srcV := extractChromaBlocks(frame, mbX, mbY, chromaW, chromaH)
+				var srcY [256]byte
+				extractLumaBlock(&srcY, frame, mbX, mbY, tc.w, tc.h)
+				var srcU, srcV [64]byte
+				extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
 				ctx := enc.buildMBContext(frame, mbX, mbY, mbW, mbH)
-				mbs[mbIdx] = processMacroblock(srcY, srcU, srcV, ctx, qf)
+				mbs[mbIdx] = processMacroblock(srcY[:], srcU[:], srcV[:], ctx, qf)
 
 				mb := &mbs[mbIdx]
 				fmt.Printf("MB(%d,%d): lumaMode=%d (%v), chromaMode=%d, skip=%v\n",

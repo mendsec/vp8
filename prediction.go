@@ -351,7 +351,7 @@ func SelectBest16x16Mode(src, above, left []byte, topLeft byte) (intraMode, int)
 	bestMode := DC_PRED
 	bestSAD := 1 << 30 // Large initial value
 
-	modes := []intraMode{DC_PRED, V_PRED, H_PRED, TM_PRED}
+	modes := [4]intraMode{DC_PRED, V_PRED, H_PRED, TM_PRED}
 	for _, mode := range modes {
 		Predict16x16(pred[:], above, left, topLeft, mode)
 		sad := computeSAD16x16(src, pred[:])
@@ -384,7 +384,7 @@ func SelectBest8x8ChromaMode(src, above, left []byte, topLeft byte) (chromaMode,
 	bestMode := DC_PRED_CHROMA
 	bestSAD := 1 << 30
 
-	modes := []chromaMode{DC_PRED_CHROMA, V_PRED_CHROMA, H_PRED_CHROMA, TM_PRED_CHROMA}
+	modes := [4]chromaMode{DC_PRED_CHROMA, V_PRED_CHROMA, H_PRED_CHROMA, TM_PRED_CHROMA}
 	for _, mode := range modes {
 		Predict8x8Chroma(pred[:], above, left, topLeft, mode)
 		sad := computeSAD8x8(src, pred[:])
@@ -409,7 +409,7 @@ func SelectBest8x8ChromaModeUV(
 	bestMode := DC_PRED_CHROMA
 	bestSAD := 1 << 30
 
-	modes := []chromaMode{DC_PRED_CHROMA, V_PRED_CHROMA, H_PRED_CHROMA, TM_PRED_CHROMA}
+	modes := [4]chromaMode{DC_PRED_CHROMA, V_PRED_CHROMA, H_PRED_CHROMA, TM_PRED_CHROMA}
 	for _, mode := range modes {
 		Predict8x8Chroma(predU[:], aboveU, leftU, topLeftU, mode)
 		Predict8x8Chroma(predV[:], aboveV, leftV, topLeftV, mode)

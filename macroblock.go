@@ -223,10 +223,12 @@ func evaluateBPredMode(srcY []byte, ctx *mbContext) (int, [16]intraBMode) {
 			}
 
 			// Build context for this 4×4 block
-			above, left := build4x4Context(by, bx, ctx, recon[:])
+			var aboveBuf [9]byte
+			var leftBuf [4]byte
+			build4x4Context(aboveBuf[:], leftBuf[:], by, bx, ctx, recon[:])
 
 			// Select best mode for this block
-			mode, sad := SelectBest4x4Mode(src4x4[:], above, left)
+			mode, sad := SelectBest4x4Mode(src4x4[:], aboveBuf[:], leftBuf[:])
 			bModes[blockIdx] = mode
 			totalSAD += sad
 
@@ -246,23 +248,18 @@ func evaluateBPredMode(srcY []byte, ctx *mbContext) (int, [16]intraBMode) {
 // For blocks at macroblock edges, it uses the macroblock context.
 // For interior blocks, it uses reconstructed pixels from previous blocks.
 //
-// Returns above (9 bytes: P + A[0..7]) and left (4 bytes: L[0..3]).
-func build4x4Context(by, bx int, ctx *mbContext, recon []byte) (above, left []byte) {
+// above must be at least 9 bytes: P + A[0..7].
+// left must be at least 4 bytes: L[0..3].
+// Callers provide stack-allocated buffers to avoid heap allocations.
+func build4x4Context(above, left []byte, by, bx int, ctx *mbContext, recon []byte) {
 	// The 'above' array for 4×4 prediction has format:
 	// above[0] = P (top-left corner)
 	// above[1..4] = A[0..3] (4 pixels directly above)
 	// above[5..8] = A[4..7] (4 extra pixels for LD/VL modes)
 
-	var aboveBuf [9]byte
-	var leftBuf [4]byte
-	above = aboveBuf[:]
-	left = leftBuf[:]
-
 	above[0] = build4x4TopLeft(by, bx, ctx, recon)
 	build4x4Above(above, by, bx, ctx, recon)
 	build4x4Left(left, by, bx, ctx, recon)
-
-	return above, left
 }
 
 // build4x4TopLeft determines the top-left corner pixel (P) for a 4×4 sub-block.
@@ -436,8 +433,10 @@ func processYBlocksBPred(srcY []byte, ctx *mbContext, mb *macroblock, qf QuantFa
 		for bx := 0; bx < 4; bx++ {
 			blockIdx := by*4 + bx
 			src4x4 := extract4x4Block(srcY, by, bx)
-			above, left := build4x4Context(by, bx, ctx, recon[:])
-			process4x4BPredBlock(src4x4, above, left, mb, blockIdx, qf, recon[:], by, bx)
+			var aboveBuf [9]byte
+			var leftBuf [4]byte
+			build4x4Context(aboveBuf[:], leftBuf[:], by, bx, ctx, recon[:])
+			process4x4BPredBlock(src4x4, aboveBuf[:], leftBuf[:], mb, blockIdx, qf, recon[:], by, bx)
 		}
 	}
 }

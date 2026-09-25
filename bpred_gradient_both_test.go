@@ -38,10 +38,12 @@ func TestBPredGradientBoth(t *testing.T) {
 	for mbY := 0; mbY < mbH; mbY++ {
 		for mbX := 0; mbX < mbW; mbX++ {
 			mbIdx := mbY*mbW + mbX
-			srcY := extractLumaBlock(frame, mbX, mbY, w, h)
-			srcU, srcV := extractChromaBlocks(frame, mbX, mbY, chromaW, chromaH)
+			var srcY [256]byte
+			extractLumaBlock(&srcY, frame, mbX, mbY, w, h)
+			var srcU, srcV [64]byte
+			extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
 			ctx := enc.buildMBContext(frame, mbX, mbY, mbW, mbH)
-			mbs[mbIdx] = processMacroblock(srcY, srcU, srcV, ctx, qf)
+			mbs[mbIdx] = processMacroblock(srcY[:], srcU[:], srcV[:], ctx, qf)
 
 			mb := &mbs[mbIdx]
 			fmt.Printf("MB(%d,%d): lumaMode=%d, chromaMode=%d, skip=%v\n",
