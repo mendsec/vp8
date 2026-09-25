@@ -1,7 +1,7 @@
 # vp8 — Pure-Go VP8 Encoder
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/opd-ai/vp8.svg)](https://pkg.go.dev/github.com/opd-ai/vp8)
-[![CI](https://github.com/opd-ai/vp8/actions/workflows/ci.yml/badge.svg)](https://github.com/opd-ai/vp8/actions/workflows/ci.yml)
+[![CI](https://github.com/mendsec/vp8/actions/workflows/ci.yml/badge.svg)](https://github.com/mendsec/vp8/actions/workflows/ci.yml)
 
 A pure-Go VP8 encoder with no CGo dependencies. Supports both key frames (I-frames) and inter frames (P-frames) with motion estimation.
 
