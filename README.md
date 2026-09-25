@@ -150,10 +150,10 @@ Benchmark results on a typical developer machine (results may vary):
 
 | Resolution | Time per frame | Throughput |
 |------------|----------------|------------|
-| 320×240 | ~1.5 ms | ~670 fps |
-| 640×480 | ~5.8 ms | ~170 fps |
-| 1280×720 | ~18 ms | ~55 fps |
-| 1920×1080 | ~42 ms | ~24 fps |
+| 320×240 | ~3.3 ms | ~300 fps |
+| 640×480 | ~13 ms | ~75 fps |
+| 1280×720 | ~40 ms | ~25 fps |
+| 1920×1080 | ~92 ms | ~11 fps |
 
 Note: Inter-frame encoding includes motion estimation overhead but typically produces smaller bitstreams for similar content.
 
@@ -164,10 +164,6 @@ go test -bench=. -benchmem
 ```
 
 ## License
-VP8 Encoder in Pure Go
 
-Donate Monero(The only good cryptocurrency) to support development
-==================================================================
-
- - `monero:43H3Uqnc9rfEsJjUXZYmam45MbtWmREFSANAWY5hijY4aht8cqYaT2BCNhfBhua5XwNdx9Tb6BEdt4tjUHJDwNW5H7mTiwe`
+[MIT](LICENSE)
 
