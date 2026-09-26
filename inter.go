@@ -37,11 +37,15 @@ func processInterMacroblock(srcY, srcU, srcV []byte, ref *refFrameBuffer,
 	meResult := estimateMotion(srcY, ref.Y, ref.Width, ref.Height,
 		mbX*16, mbY*16, nearestMV)
 
-	// Compare with intra prediction cost
-	best16x16Mode, intraSAD := SelectBest16x16Mode(srcY, ctx.lumaAbove, ctx.lumaLeft, ctx.lumaTopLeft)
-
 	// Inter mode cost includes MV coding overhead
 	interCost := meResult.sad + mvCost(meResult.mv, nearestMV)
+
+	// Compare with intra prediction cost, but skip if inter is already great (Parsec optimization)
+	var best16x16Mode intraMode
+	intraSAD := 1 << 30
+	if interCost > 512 {
+		best16x16Mode, intraSAD = SelectBest16x16Mode(srcY, ctx.lumaAbove, ctx.lumaLeft, ctx.lumaTopLeft)
+	}
 
 	// Choose between inter and intra mode based on the estimated costs.
 	// Inter mode cost already includes motion vector coding overhead.

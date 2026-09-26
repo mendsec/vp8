@@ -469,6 +469,11 @@ func SelectBest4x4Mode(src, above, left []byte) (intraBMode, int) {
 		if sad < bestSAD {
 			bestSAD = sad
 			bestMode = mode
+			// EARLY TERMINATION: if SAD is very low (e.g., < 16 for a 16-pixel block), 
+			// this mode is nearly perfect. Skip evaluating the rest.
+			if sad < 16 {
+				break
+			}
 		}
 	}
 

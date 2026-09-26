@@ -100,8 +100,13 @@ func estimateMotion(srcY, ref []byte, refW, refH, mbX, mbY int, predMV motionVec
 		}
 	}
 
-	// Diamond search around the best initial point (all steps are 2-pel)
-	bestMV, bestSAD = diamondSearch(srcY, ref, refW, refH, mbX, mbY, bestMV, bestSAD)
+	// EARLY TERMINATION: if the starting SAD is already extremely low 
+	// (e.g. < 2 average per pixel difference), skip the expensive diamond search.
+	// This is critical for 1080p desktop streaming where most of the screen is static.
+	if bestSAD > 512 {
+		// Diamond search around the best initial point (all steps are 2-pel)
+		bestMV, bestSAD = diamondSearch(srcY, ref, refW, refH, mbX, mbY, bestMV, bestSAD)
+	}
 
 	// Determine the inter mode based on the selected MV
 	result := motionEstimateResult{

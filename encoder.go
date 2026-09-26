@@ -33,6 +33,9 @@ package vp8
 import (
 	"errors"
 	"fmt"
+	"runtime"
+	"sync"
+	"sync/atomic"
 )
 
 var (
@@ -309,44 +312,91 @@ func (e *Encoder) processAllMacroblocks(frame *Frame, isKeyFrame bool, qf QuantF
 
 // processKeyFrameMBs processes macroblocks for a key frame (intra only).
 func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refFrameBuffer, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
-	for mbY := 0; mbY < mbH; mbY++ {
-		for mbX := 0; mbX < mbW; mbX++ {
-			mbIdx := mbY*mbW + mbX
-			var srcY [256]byte
-			extractLumaBlock(&srcY, frame, mbX, mbY, e.width, e.height)
-			var srcU, srcV [64]byte
-			extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
-
-			// From the reconstruction, not the source.
-			var ctx mbContext
-			buildReconContext(&ctx, recon, mbX, mbY, e.width, e.height, chromaW)
-			mbs[mbIdx] = processMacroblock(srcY[:], srcU[:], srcV[:], &ctx, qf)
-			reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
-		}
+	rowProgress := make([]atomic.Int32, mbH)
+	for i := 0; i < mbH; i++ {
+		rowProgress[i].Store(-1)
 	}
+
+	var wg sync.WaitGroup
+	for y := 0; y < mbH; y++ {
+		wg.Add(1)
+		go func(mbY int) {
+			defer wg.Done()
+			for mbX := 0; mbX < mbW; mbX++ {
+				if mbY > 0 {
+					for {
+						val := rowProgress[mbY-1].Load()
+						if val >= int32(mbX+1) || (mbX+1 >= mbW && val >= int32(mbW-1)) {
+							break
+						}
+						runtime.Gosched()
+					}
+				}
+
+				mbIdx := mbY*mbW + mbX
+				var srcY [256]byte
+				extractLumaBlock(&srcY, frame, mbX, mbY, e.width, e.height)
+				var srcU, srcV [64]byte
+				extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
+
+				var ctx mbContext
+				buildReconContext(&ctx, recon, mbX, mbY, e.width, e.height, chromaW)
+				mbs[mbIdx] = processMacroblock(srcY[:], srcU[:], srcV[:], &ctx, qf)
+				reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
+
+				rowProgress[mbY].Store(int32(mbX))
+			}
+		}(y)
+	}
+	wg.Wait()
 }
 
 // processInterFrameMBs processes macroblocks for an inter frame (with motion estimation).
 func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *refFrameBuffer, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
 	refBuf := e.refFrames.getRef(refFrameLast)
-	for mbY := 0; mbY < mbH; mbY++ {
-		for mbX := 0; mbX < mbW; mbX++ {
-			mbIdx := mbY*mbW + mbX
-			var srcY [256]byte
-			extractLumaBlock(&srcY, frame, mbX, mbY, e.width, e.height)
-			var srcU, srcV [64]byte
-			extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
-			var ctx mbContext
-			buildReconContext(&ctx, recon, mbX, mbY, e.width, e.height, chromaW)
-			mbs[mbIdx] = processInterMacroblock(srcY[:], srcU[:], srcV[:], refBuf, mbX, mbY, mbW, mbs, qf, &ctx)
-
-			if mbs[mbIdx].isInter {
-				reconstructInterMB(recon, &mbs[mbIdx], mbX, mbY, e.width, e.height, chromaW, qf, e.refFrames)
-			} else {
-				reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
-			}
-		}
+	
+	rowProgress := make([]atomic.Int32, mbH)
+	for i := 0; i < mbH; i++ {
+		rowProgress[i].Store(-1)
 	}
+
+	var wg sync.WaitGroup
+	for y := 0; y < mbH; y++ {
+		wg.Add(1)
+		go func(mbY int) {
+			defer wg.Done()
+			for mbX := 0; mbX < mbW; mbX++ {
+				if mbY > 0 {
+					for {
+						val := rowProgress[mbY-1].Load()
+						if val >= int32(mbX+1) || (mbX+1 >= mbW && val >= int32(mbW-1)) {
+							break
+						}
+						runtime.Gosched()
+					}
+				}
+
+				mbIdx := mbY*mbW + mbX
+				var srcY [256]byte
+				extractLumaBlock(&srcY, frame, mbX, mbY, e.width, e.height)
+				var srcU, srcV [64]byte
+				extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
+				
+				var ctx mbContext
+				buildReconContext(&ctx, recon, mbX, mbY, e.width, e.height, chromaW)
+				mbs[mbIdx] = processInterMacroblock(srcY[:], srcU[:], srcV[:], refBuf, mbX, mbY, mbW, mbs, qf, &ctx)
+
+				if mbs[mbIdx].isInter {
+					reconstructInterMB(recon, &mbs[mbIdx], mbX, mbY, e.width, e.height, chromaW, qf, e.refFrames)
+				} else {
+					reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
+				}
+
+				rowProgress[mbY].Store(int32(mbX))
+			}
+		}(y)
+	}
+	wg.Wait()
 }
 
 // encodeKeyFrame builds and returns the key frame bitstream.

@@ -358,6 +358,10 @@ func SelectBest16x16Mode(src, above, left []byte, topLeft byte) (intraMode, int)
 		if sad < bestSAD {
 			bestSAD = sad
 			bestMode = mode
+			// EARLY TERMINATION: if SAD < 256 (avg < 1 diff per pixel), skip the rest
+			if sad < 256 {
+				break
+			}
 		}
 	}
 
@@ -415,6 +419,9 @@ func SelectBest8x8ChromaModeUV(
 		if sad < bestSAD {
 			bestSAD = sad
 			bestMode = mode
+			if sad < 128 { // 64+64 pixels
+				break
+			}
 		}
 	}
 

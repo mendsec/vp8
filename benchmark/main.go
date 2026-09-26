@@ -123,6 +123,18 @@ var testMatrix = []BenchmarkConfig{
 		NumFrames:     100,
 		RandSeed:      42,
 	},
+	{
+		Name:          "1080p_inter",
+		Width:         1920,
+		Height:        1080,
+		Quality:       50,
+		KeyframeOnly:  false,
+		EnableMotion:  true,
+		Threads:       4,
+		TargetBitrate: 5000,
+		NumFrames:     50,
+		RandSeed:      42,
+	},
 }
 
 func main() {
