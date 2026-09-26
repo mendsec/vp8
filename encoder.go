@@ -126,12 +126,12 @@ func NewEncoder(width, height, fps int) (*Encoder, error) {
 		coeffHistogram: NewCoeffHistogram(),
 		coeffProbs:     DefaultCoeffProbs,
 	}
-	
+
 	mbW := (width + 15) / 16
 	mbH := (height + 15) / 16
 	enc.mbsBuf = make([]macroblock, mbW*mbH)
 	enc.reconBuf = enc.refFrames.allocBuffer()
-	
+
 	return enc, nil
 }
 
@@ -277,7 +277,7 @@ func (e *Encoder) Encode(yuv []byte) ([]byte, error) {
 	mbs, recon := e.processAllMacroblocks(frame, isKeyFrame, qf)
 
 	var bitstream []byte
-	
+
 	if isKeyFrame || !e.refFrames.hasReference(refFrameLast) {
 		bitstream, err = e.encodeKeyFrame(mbs, recon)
 	} else {
@@ -376,7 +376,7 @@ func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *re
 				extractLumaBlock(&srcY, frame, mbX, mbY, e.width, e.height)
 				var srcU, srcV [64]byte
 				extractChromaBlocks(&srcU, &srcV, frame, mbX, mbY, chromaW, chromaH)
-				
+
 				var ctx mbContext
 				buildReconContext(&ctx, recon, mbX, mbY, e.width, e.height, chromaW)
 				mbs[mbIdx] = processInterMacroblock(srcY[:], srcU[:], srcV[:], refBuf, mbX, mbY, mbW, mbs, qf, &ctx)

@@ -100,7 +100,7 @@ func estimateMotion(srcY, ref []byte, refW, refH, mbX, mbY int, predMV motionVec
 		}
 	}
 
-	// EARLY TERMINATION: if the starting SAD is already extremely low 
+	// EARLY TERMINATION: if the starting SAD is already extremely low
 	// (e.g. < 2 average per pixel difference), skip the expensive diamond search.
 	// This is critical for 1080p desktop streaming where most of the screen is static.
 	if bestSAD > 512 {
@@ -257,11 +257,11 @@ func computeMCSAD16x16(srcY, ref []byte, refW, refH, mbX, mbY int, mv motionVect
 	for row := 0; row < 16; row++ {
 		srcOff := row * 16
 		refOff := (refY+row)*refW + refX
-		
+
 		// Use slice bounds check elimination
 		srcSlice := srcY[srcOff : srcOff+16]
 		refSlice := ref[refOff : refOff+16]
-		
+
 		for col := 0; col < 16; col++ {
 			s := int(srcSlice[col])
 			r := int(refSlice[col])

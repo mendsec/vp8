@@ -418,4 +418,3 @@ func SelectBest8x8ChromaModeUV(
 
 	return bestMode
 }
-
