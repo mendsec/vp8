@@ -1,3 +1,4 @@
+//go:build amd64 && !gosec
 #include "textflag.h"
 
 // func computeSAD16x16(a, b []byte) int

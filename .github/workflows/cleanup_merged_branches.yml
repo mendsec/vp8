@@ -1,0 +1,42 @@
+name: Cleanup Merged Branches
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  delete-branch:
+    name: Delete Merged Source Branch
+    # Runs only if the PR was actually merged (not just closed/rejected)
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required permission to delete the branch reference
+    
+    steps:
+      - name: Delete Head Branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const headRef = context.payload.pull_request.head.ref;
+            const baseRef = context.payload.pull_request.base.ref;
+            
+            // Safety net to prevent accidental deletion of protected branches
+            if (headRef === 'main' || headRef === 'develop') {
+              console.log(`Skipped operation: ${headRef} is a protected branch.`);
+              return;
+            }
+            
+            console.log(`Pull Request merged into ${baseRef}. Deleting source branch: ${headRef}...`);
+            
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${headRef}`
+              });
+              console.log('✅ Branch successfully deleted to keep the repository clean.');
+            } catch (error) {
+              console.log(`⚠️ Warning (The branch may have already been deleted): ${error.message}`);
+            }
