@@ -438,3 +438,50 @@ func TestCoeffHistogramOverflow(t *testing.T) {
 		t.Errorf("computeSingleProb with wrapped uint32 total = %d, want > 128", prob)
 	}
 }
+
+func TestEncodeToken(t *testing.T) {
+	enc := newBoolEncoder()
+	var probs [4][8][3][11]uint8
+	te := NewTokenEncoder(enc, &probs)
+
+	// Test EncodeToken (calls encodeTokenTree and potentially putBit)
+	te.EncodeToken(0, 0, 0, 10)
+	te.EncodeToken(0, 0, 0, 0) // EOB or 0
+	enc.flush()
+}
+
+func TestEncodeTokenTree(t *testing.T) {
+	enc := newBoolEncoder()
+	var probs [4][8][3][11]uint8
+	te := NewTokenEncoder(enc, &probs)
+
+	p := &[11]uint8{128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128}
+	te.encodeTokenTree(p, DCT_EOB, 0)
+	te.encodeTokenTree(p, DCT_0, 0)
+	enc.flush()
+}
+
+func TestEstimateBitCost(t *testing.T) {
+	cost := estimateBitCost(128, 10, 10)
+	if cost == 0 {
+		t.Errorf("expected positive cost, got %d", cost)
+	}
+	// edge cases
+	estimateBitCost(0, 10, 10)
+	estimateBitCost(255, 10, 10)
+}
+
+func TestRecordCategoryToken(t *testing.T) {
+	h := NewCoeffHistogram()
+
+	tokens := []int{DCT_CAT1, DCT_CAT2, DCT_CAT3, DCT_CAT4, DCT_CAT5, DCT_CAT6}
+	for _, tk := range tokens {
+		h.RecordToken(0, 0, 0, tk)
+	}
+
+	// Just verify the counts are recorded, no panic
+	c := &h.counts[0][0][0]
+	if c[6][0] != 2 { // CAT1 and CAT2
+		t.Errorf("expected 2 tokens in cat1/cat2 bucket, got %d", c[6][0])
+	}
+}
