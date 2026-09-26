@@ -1,0 +1,21 @@
+name: Enforce Main Policy
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+jobs:
+  enforce-bot-only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Actor
+        run: |
+          if [ "${{ github.actor }}" != "github-actions[bot]" ]; then
+            echo "❌ Policy Violation: Humans cannot target 'main' directly."
+            echo "All human PRs must be directed to the 'develop' branch."
+            echo "Only github-actions[bot] can open Release PRs from develop to main."
+            exit 1
+          fi
+          echo "✅ Authorized Bot Activity"
