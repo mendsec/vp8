@@ -3,7 +3,6 @@ name: Update README Badges
 on:
   push:
     branches:
-      - main
       - develop
 
 permissions:
@@ -58,4 +57,4 @@ jobs:
           branch: "chore/update-readme-badges"
           title: "docs: auto-update README badges"
           body: "Automatically generated PR to update README badges (Coverage, Go version)."
-          base: ${{ github.ref_name }}
+          base: develop
