@@ -11,7 +11,7 @@
   <a href="https://github.com/mendsec/vp8/actions/workflows/ci.yml"><img src="https://github.com/mendsec/vp8/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/mendsec/vp8/actions/workflows/devsecops.yml"><img src="https://github.com/mendsec/vp8/actions/workflows/devsecops.yml/badge.svg" alt="DevSecOps"></a>
   ![Go Version](https://img.shields.io/badge/Go-1.27.0-blue)
-  ![Coverage](https://img.shields.io/badge/Coverage-84.5%25-brightgreen)
+  ![Coverage](https://img.shields.io/badge/Coverage-88.4%25-brightgreen)
   <a href="https://github.com/mendsec/vp8/blob/develop/LICENSE"><img src="https://img.shields.io/github/license/mendsec/vp8" alt="License"></a>
 </div>
 
