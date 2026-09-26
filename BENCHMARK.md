@@ -23,9 +23,9 @@ The suite automatically tests the following configurations to validate throughpu
 - **720p_inter**: 1280x720, Quality 50, Target 2500 kbps (I and P-frames with Motion Estimation)
 - **1080p_inter**: 1920x1080, Quality 50, Target 5000 kbps (I and P-frames with Motion Estimation)
 
-## Recent Parsec-Inspired Optimizations
+## Recent Real-Time Streaming Optimizations
 
-To achieve real-time streaming performance (e.g., >20 fps at 1080p and >100 fps at 480p in pure Go), we implemented several techniques inspired by high-performance software/hardware encoders like Parsec:
+To achieve real-time streaming performance (e.g., >20 fps at 1080p and >100 fps at 480p in pure Go), we implemented several techniques commonly found in ultra-low latency streaming systems:
 
 1. **Wavefront Parallel Processing (WPP)**: Instead of a sequential macroblock loop, the encoder now uses a lock-free spin-wait row-based worker pool (Goroutines + `atomic.Int32`). This allows multiple rows of the frame to be encoded concurrently while safely respecting Above/Left spatial dependencies.
 2. **Zero-Motion Early Termination**: For desktop streaming, static backgrounds are common. We now evaluate a `ZeroMV` predictor first. If the Sum of Absolute Differences (SAD) is extremely low, we skip the expensive Diamond Search completely.

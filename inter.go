@@ -40,7 +40,7 @@ func processInterMacroblock(srcY, srcU, srcV []byte, ref *refFrameBuffer,
 	// Inter mode cost includes MV coding overhead
 	interCost := meResult.sad + mvCost(meResult.mv, nearestMV)
 
-	// Compare with intra prediction cost, but skip if inter is already great (Parsec optimization)
+	// Compare with intra prediction cost, but skip if inter is already great (ultra-low latency optimization)
 	var best16x16Mode intraMode
 	intraSAD := 1 << 30
 	if interCost > 512 {
