@@ -101,6 +101,7 @@ type Encoder struct {
 	// Buffers to avoid per-frame allocations
 	reconBuf refFrameBuffer
 	mbsBuf   []macroblock
+	rc       *RateController
 }
 
 // NewEncoder creates a new VP8 Encoder for frames of the given dimensions
@@ -140,17 +141,12 @@ func NewEncoder(width, height, fps int) (*Encoder, error) {
 // The encoder maps this to a VP8 quantizer index. Values outside the
 // typical WebRTC range (100 kbps – 8 Mbps) are clamped.
 func (e *Encoder) SetBitrate(bitrate int) {
-	if bitrate < 100_000 {
-		bitrate = 100_000
-	}
-	if bitrate > 8_000_000 {
-		bitrate = 8_000_000
+	if bitrate < 10_000 {
+		bitrate = 10_000
 	}
 	e.bitrate = bitrate
-	// Rough linear mapping: higher bitrate → lower QI (better quality).
-	// qi ∈ [4, 63]: 8 Mbps → qi=4, 100 kbps → qi=63.
-	ratio := float64(e.bitrate-100_000) / float64(8_000_000-100_000)
-	e.qi = 63 - int(ratio*59)
+	e.rc = NewRateController(bitrate, e.fps)
+	e.qi = e.rc.GetCurrentQI()
 }
 
 // ForceKeyFrame causes the next call to Encode to produce a key frame.
@@ -282,10 +278,19 @@ func (e *Encoder) Encode(yuv []byte) ([]byte, error) {
 	qf := GetQuantFactors(e.qi, e.y1DCDelta, e.y2DCDelta, e.y2ACDelta, e.uvDCDelta, e.uvACDelta)
 	mbs, recon := e.processAllMacroblocks(frame, isKeyFrame, qf)
 
+	var bitstream []byte
+	
 	if isKeyFrame || !e.refFrames.hasReference(refFrameLast) {
-		return e.encodeKeyFrame(mbs, recon)
+		bitstream, err = e.encodeKeyFrame(mbs, recon)
+	} else {
+		bitstream, err = e.encodeInterFrame(mbs, recon)
 	}
-	return e.encodeInterFrame(mbs, recon)
+
+	if err == nil && e.rc != nil {
+		e.qi = e.rc.Update(len(bitstream))
+	}
+
+	return bitstream, err
 }
 
 // processAllMacroblocks processes all macroblocks in the frame.

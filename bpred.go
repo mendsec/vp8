@@ -481,12 +481,3 @@ func SelectBest4x4Mode(src, above, left []byte) (intraBMode, int) {
 }
 
 // computeSAD4x4 computes Sum of Absolute Differences between two 4x4 blocks.
-func computeSAD4x4(a, b []byte) int {
-	sad := 0
-	for i := 0; i < 16; i++ {
-		diff := int(a[i]) - int(b[i])
-		mask := diff >> 31
-		sad += (diff ^ mask) - mask
-	}
-	return sad
-}

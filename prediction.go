@@ -369,15 +369,6 @@ func SelectBest16x16Mode(src, above, left []byte, topLeft byte) (intraMode, int)
 }
 
 // computeSAD16x16 computes Sum of Absolute Differences between two 16x16 blocks.
-func computeSAD16x16(a, b []byte) int {
-	sad := 0
-	for i := 0; i < 256; i++ {
-		diff := int(a[i]) - int(b[i])
-		mask := diff >> 31
-		sad += (diff ^ mask) - mask
-	}
-	return sad
-}
 
 // SelectBest8x8ChromaMode evaluates all 8x8 chroma prediction modes and returns
 // the one with the lowest SAD compared to the source block.
@@ -428,12 +419,3 @@ func SelectBest8x8ChromaModeUV(
 	return bestMode
 }
 
-func computeSAD8x8(a, b []byte) int {
-	sad := 0
-	for i := 0; i < 64; i++ {
-		diff := int(a[i]) - int(b[i])
-		mask := diff >> 31
-		sad += (diff ^ mask) - mask
-	}
-	return sad
-}
