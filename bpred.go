@@ -480,10 +480,8 @@ func computeSAD4x4(a, b []byte) int {
 	sad := 0
 	for i := 0; i < 16; i++ {
 		diff := int(a[i]) - int(b[i])
-		if diff < 0 {
-			diff = -diff
-		}
-		sad += diff
+		mask := diff >> 31
+		sad += (diff ^ mask) - mask
 	}
 	return sad
 }

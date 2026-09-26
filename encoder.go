@@ -90,10 +90,14 @@ type Encoder struct {
 	// Coefficient probability adaptation
 	// coeffHistogram tracks token statistics for probability updates.
 	coeffHistogram *CoeffHistogram
-	// coeffProbs stores the current coefficient probabilities (may differ from defaults).
+	// CoeffProbs stores the current coefficient probabilities.
 	coeffProbs [4][8][3][11]uint8
 	// useProbUpdates enables adaptive probability updates when beneficial.
 	useProbUpdates bool
+
+	// Buffers to avoid per-frame allocations
+	reconBuf refFrameBuffer
+	mbsBuf   []macroblock
 }
 
 // NewEncoder creates a new VP8 Encoder for frames of the given dimensions
@@ -120,6 +124,12 @@ func NewEncoder(width, height, fps int) (*Encoder, error) {
 		coeffHistogram: NewCoeffHistogram(),
 		coeffProbs:     DefaultCoeffProbs,
 	}
+	
+	mbW := (width + 15) / 16
+	mbH := (height + 15) / 16
+	enc.mbsBuf = make([]macroblock, mbW*mbH)
+	enc.reconBuf = enc.refFrames.allocBuffer()
+	
 	return enc, nil
 }
 
@@ -281,12 +291,12 @@ func (e *Encoder) processAllMacroblocks(frame *Frame, isKeyFrame bool, qf QuantF
 	mbH := (e.height + 15) / 16
 	chromaW := e.width / 2
 	chromaH := e.height / 2
-	mbs := make([]macroblock, mbW*mbH)
+	mbs := e.mbsBuf
 
 	// The reconstruction is built here rather than afterwards, because each
 	// macroblock is analysed against the reconstruction of its neighbours --
 	// the same pixels the decoder will have -- and not against the source.
-	recon := e.refFrames.allocBuffer()
+	recon := e.reconBuf
 	recon.valid = true
 
 	if isKeyFrame || !e.refFrames.hasReference(refFrameLast) {

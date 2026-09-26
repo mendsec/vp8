@@ -252,12 +252,18 @@ func computeMCSAD16x16(srcY, ref []byte, refW, refH, mbX, mbY int, mv motionVect
 	for row := 0; row < 16; row++ {
 		srcOff := row * 16
 		refOff := (refY+row)*refW + refX
+		
+		// Use slice bounds check elimination
+		srcSlice := srcY[srcOff : srcOff+16]
+		refSlice := ref[refOff : refOff+16]
+		
 		for col := 0; col < 16; col++ {
-			diff := int(srcY[srcOff+col]) - int(ref[refOff+col])
-			if diff < 0 {
-				diff = -diff
-			}
-			sad += diff
+			s := int(srcSlice[col])
+			r := int(refSlice[col])
+			diff := s - r
+			// Branchless abs: (diff ^ mask) - mask
+			mask := diff >> 31
+			sad += (diff ^ mask) - mask
 		}
 	}
 	return sad
