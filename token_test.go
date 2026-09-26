@@ -467,8 +467,8 @@ func TestEstimateBitCost(t *testing.T) {
 		t.Errorf("expected positive cost, got %d", cost)
 	}
 	// edge cases
-	estimateBitCost(0, 10, 10)
-	estimateBitCost(255, 10, 10)
+	_ = estimateBitCost(0, 10, 10)
+	_ = estimateBitCost(255, 10, 10)
 }
 
 func TestRecordCategoryToken(t *testing.T) {
