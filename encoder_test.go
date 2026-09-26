@@ -466,3 +466,41 @@ func TestMultiPartitionEncode(t *testing.T) {
 		})
 	}
 }
+
+func TestEncoder_Accessors(t *testing.T) {
+	enc, err := NewEncoder(640, 480, 30)
+	if err != nil {
+		t.Fatalf("Failed to create encoder: %v", err)
+	}
+	if enc.Width() != 640 {
+		t.Errorf("Width() = %d, want 640", enc.Width())
+	}
+	if enc.Height() != 480 {
+		t.Errorf("Height() = %d, want 480", enc.Height())
+	}
+	if enc.FPS() != 30 {
+		t.Errorf("FPS() = %d, want 30", enc.FPS())
+	}
+}
+
+func TestEncoder_ProbUpdates(t *testing.T) {
+	enc, err := NewEncoder(32, 32, 30)
+	if err != nil {
+		t.Fatalf("Failed to create encoder: %v", err)
+	}
+	enc.SetProbabilityUpdates(true)
+
+	srcYUV := makeYUV420(32, 32, 128)
+
+	// Encode key frame
+	_, err = enc.Encode(srcYUV)
+	if err != nil {
+		t.Errorf("Encode key frame failed: %v", err)
+	}
+
+	// Encode inter frame
+	_, err = enc.Encode(srcYUV)
+	if err != nil {
+		t.Errorf("Encode inter frame failed: %v", err)
+	}
+}

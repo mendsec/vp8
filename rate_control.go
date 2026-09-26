@@ -34,8 +34,8 @@ func NewRateController(bitrate, fps int) *RateController {
 		targetBitrate:  bitrate,
 		fps:            fps,
 		targetPerFrame: targetPerFrame,
-		bufferSize:     targetPerFrame * fps,         // 1 second tolerance buffer
-		bufferLevel:    (targetPerFrame * fps) / 2,   // start at 50% capacity
+		bufferSize:     targetPerFrame * fps,       // 1 second tolerance buffer
+		bufferLevel:    (targetPerFrame * fps) / 2, // start at 50% capacity
 		currentQI:      initialQI,
 	}
 }
@@ -53,13 +53,13 @@ func (rc *RateController) Update(encodedBytes int) int {
 		rc.currentQI += 2
 	} else if rc.bufferLevel > int(float64(rc.bufferSize)*0.60) {
 		rc.currentQI += 1
+	} else if rc.bufferLevel <= 0 {
+		rc.currentQI -= 4 // Network is free: drastically increase quality
+		rc.bufferLevel = 0
 	} else if rc.bufferLevel < int(float64(rc.bufferSize)*0.25) {
 		rc.currentQI -= 2
 	} else if rc.bufferLevel < int(float64(rc.bufferSize)*0.40) {
 		rc.currentQI -= 1
-	} else if rc.bufferLevel <= 0 {
-		rc.currentQI -= 4 // Network is free: drastically increase quality
-		rc.bufferLevel = 0
 	}
 
 	// Clamp QI to valid VP8 bounds (0 is lossless, but typical streaming avoids it)

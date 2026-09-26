@@ -304,3 +304,19 @@ func TestZigzagScanOrder(t *testing.T) {
 		t.Errorf("Zigzag[3] = %d, want 8", zigzag[3])
 	}
 }
+
+func TestComputeResidual16x16(t *testing.T) {
+	src := make([]byte, 256)
+	pred := make([]byte, 256)
+	for i := 0; i < 256; i++ {
+		src[i] = byte(i % 256)
+		pred[i] = byte((i + 10) % 256)
+	}
+	residual := ComputeResidual16x16(src, pred)
+	for i := 0; i < 256; i++ {
+		want := int16(src[i]) - int16(pred[i])
+		if residual[i] != want {
+			t.Errorf("residual[%d] = %d, want %d", i, residual[i], want)
+		}
+	}
+}
