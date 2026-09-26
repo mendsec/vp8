@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ['1.24', '1.25']
+        go: ['1.26', '1.27']
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -62,7 +62,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.27'
 
       # `latest` is what broke this job: it crossed the golangci-lint v1 -> v2
       # boundary under an action major that only drove v1, and the binary
