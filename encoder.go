@@ -325,7 +325,7 @@ func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refF
 			for mbX := 0; mbX < mbW; mbX++ {
 				if mbY > 0 {
 					trackers[mbY-1].mu.Lock()
-					for trackers[mbY-1].col < mbX+1 && !(mbX+1 >= mbW && trackers[mbY-1].col >= mbW-1) {
+					for trackers[mbY-1].col < mbX+1 && mbX+1 < mbW || trackers[mbY-1].col < mbW-1 {
 						trackers[mbY-1].cond.Wait()
 					}
 					trackers[mbY-1].mu.Unlock()
@@ -365,7 +365,7 @@ func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *re
 			for mbX := 0; mbX < mbW; mbX++ {
 				if mbY > 0 {
 					trackers[mbY-1].mu.Lock()
-					for trackers[mbY-1].col < mbX+1 && !(mbX+1 >= mbW && trackers[mbY-1].col >= mbW-1) {
+					for trackers[mbY-1].col < mbX+1 && mbX+1 < mbW || trackers[mbY-1].col < mbW-1 {
 						trackers[mbY-1].cond.Wait()
 					}
 					trackers[mbY-1].mu.Unlock()

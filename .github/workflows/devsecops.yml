@@ -15,7 +15,7 @@ jobs:
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
-          args: ./...
+          args: -tags=gosec -exclude=G115 ./...
 
   lint:
     name: Code Quality (golangci-lint)

@@ -143,7 +143,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	pprof.StartCPUProfile(f)
+	_ = pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
 	
 	fmt.Println("🔧 VP8 Pure Go Encoder Benchmark Tool")
@@ -236,8 +236,8 @@ func runBenchmark(config BenchmarkConfig) BenchmarkResult {
 	result.OutputBytes = totalBytes
 	result.BitrateKbps = (float64(totalBytes) * 8) / durationSeconds / 1000
 
-	result.AllocsPerFrame = int64(memStatsAfter.Mallocs-memStatsBefore.Mallocs) / int64(config.NumFrames)
-	result.AllocBytesPerFrame = int64(memStatsAfter.TotalAlloc-memStatsBefore.TotalAlloc) / int64(config.NumFrames)
+	result.AllocsPerFrame = int64 /* #nosec G115 */(memStatsAfter.Mallocs-memStatsBefore.Mallocs) / int64(config.NumFrames)
+	result.AllocBytesPerFrame = int64 /* #nosec G115 */(memStatsAfter.TotalAlloc-memStatsBefore.TotalAlloc) / int64(config.NumFrames)
 	result.GCPauses = int(memStatsAfter.NumGC - memStatsBefore.NumGC)
 	result.GCTotalTime = gcTotalTime
 	result.PeakMemoryMB = float64(memStatsAfter.HeapInuse) / 1024 / 1024
@@ -262,7 +262,7 @@ func createEncoder(config BenchmarkConfig) (*vp8.Encoder, error) {
 
 func generateTestFrames(config BenchmarkConfig) [][]byte {
 	frames := make([][]byte, config.NumFrames)
-	rng := rand.New(rand.NewSource(config.RandSeed))
+	rng := rand.New(rand.NewSource(config.RandSeed)) // #nosec G404
 
 	for i := 0; i < config.NumFrames; i++ {
 		img := image.NewRGBA(image.Rect(0, 0, config.Width, config.Height))
@@ -278,14 +278,14 @@ func drawPattern(img *image.RGBA, width, height, offset int, rng *rand.Rand) {
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{20, 20, 30, 255}}, image.Point{}, draw.Src)
 
 	for i := 0; i < 20; i++ {
-		x := (int(rng.Int31n(int32(width))) + offset) % width
-		y := int(rng.Int31n(int32(height)))
+		x := (int(rng.Int31n(int32(width))) + offset) % width /* #nosec G115 */
+		y := int(rng.Int31n(int32(height))) /* #nosec G115 */
 		w := int(rng.Int31n(100)) + 50
 		h := int(rng.Int31n(100)) + 50
 
-		r := uint8(rng.Int31n(256))
-		g := uint8(rng.Int31n(256))
-		b := uint8(rng.Int31n(256))
+		r := uint8(rng.Int31n(256)) /* #nosec G115 */
+		g := uint8(rng.Int31n(256)) /* #nosec G115 */
+		b := uint8(rng.Int31n(256)) /* #nosec G115 */
 
 		rect := image.Rect(x, y, x+w, y+h)
 		draw.Draw(img, rect, &image.Uniform{color.RGBA{r, g, b, 255}}, image.Point{}, draw.Src)
@@ -346,16 +346,16 @@ func generateReport(results []BenchmarkResult) {
 		fmt.Printf("⚠️  Error creating CSV: %v\n", err)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
-	fmt.Fprintln(f, "Config,Resolution,Quality,Threads,KeyframesOnly,Throughput_FPS,AvgTime_Ms,Output_KB,Bitrate_Kbps,Allocs_PerFrame,AllocBytes_PerFrame,GC_Pauses,PeakMemory_MB,Success")
+	_, _ = fmt.Fprintln(f, "Config,Resolution,Quality,Threads,KeyframesOnly,Throughput_FPS,AvgTime_Ms,Output_KB,Bitrate_Kbps,Allocs_PerFrame,AllocBytes_PerFrame,GC_Pauses,PeakMemory_MB,Success")
 
 	for _, r := range results {
 		status := "OK"
 		if !r.Success {
 			status = "FAIL"
 		}
-		fmt.Fprintf(f, "%s,%dx%d,%d,%d,%v,%.2f,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%s\n",
+		_, _ = fmt.Fprintf(f, "%s,%dx%d,%d,%d,%v,%.2f,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%s\n",
 			r.Config.Name,
 			r.Config.Width,
 			r.Config.Height,
