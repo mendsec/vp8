@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -107,7 +108,7 @@ var testMatrix = []BenchmarkConfig{
 		EnableMotion:  false,
 		Threads:       1,
 		TargetBitrate: 5000,
-		NumFrames:     50,
+		NumFrames:     100,
 		RandSeed:      42,
 	},
 	// Inter-frame validation (Motion)
@@ -132,12 +133,19 @@ var testMatrix = []BenchmarkConfig{
 		EnableMotion:  true,
 		Threads:       4,
 		TargetBitrate: 5000,
-		NumFrames:     50,
+		NumFrames:     100,
 		RandSeed:      42,
 	},
 }
 
 func main() {
+	f, err := os.Create("cpu.prof")
+	if err != nil {
+		panic(err)
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+	
 	fmt.Println("🔧 VP8 Pure Go Encoder Benchmark Tool")
 	fmt.Println("=====================================")
 	fmt.Printf("💻 Go version: %s\n", runtime.Version())

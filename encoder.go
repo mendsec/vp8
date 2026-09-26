@@ -33,9 +33,7 @@ package vp8
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
-	"sync/atomic"
 )
 
 var (
@@ -317,10 +315,7 @@ func (e *Encoder) processAllMacroblocks(frame *Frame, isKeyFrame bool, qf QuantF
 
 // processKeyFrameMBs processes macroblocks for a key frame (intra only).
 func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refFrameBuffer, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
-	rowProgress := make([]atomic.Int32, mbH)
-	for i := 0; i < mbH; i++ {
-		rowProgress[i].Store(-1)
-	}
+	trackers := newRowTrackers(mbH)
 
 	var wg sync.WaitGroup
 	for y := 0; y < mbH; y++ {
@@ -329,13 +324,11 @@ func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refF
 			defer wg.Done()
 			for mbX := 0; mbX < mbW; mbX++ {
 				if mbY > 0 {
-					for {
-						val := rowProgress[mbY-1].Load()
-						if val >= int32(mbX+1) || (mbX+1 >= mbW && val >= int32(mbW-1)) {
-							break
-						}
-						runtime.Gosched()
+					trackers[mbY-1].mu.Lock()
+					for trackers[mbY-1].col < mbX+1 && !(mbX+1 >= mbW && trackers[mbY-1].col >= mbW-1) {
+						trackers[mbY-1].cond.Wait()
 					}
+					trackers[mbY-1].mu.Unlock()
 				}
 
 				mbIdx := mbY*mbW + mbX
@@ -349,7 +342,10 @@ func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refF
 				mbs[mbIdx] = processMacroblock(srcY[:], srcU[:], srcV[:], &ctx, qf)
 				reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
 
-				rowProgress[mbY].Store(int32(mbX))
+				trackers[mbY].mu.Lock()
+				trackers[mbY].col = mbX
+				trackers[mbY].cond.Broadcast()
+				trackers[mbY].mu.Unlock()
 			}
 		}(y)
 	}
@@ -359,11 +355,7 @@ func (e *Encoder) processKeyFrameMBs(frame *Frame, mbs []macroblock, recon *refF
 // processInterFrameMBs processes macroblocks for an inter frame (with motion estimation).
 func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *refFrameBuffer, mbW, mbH, chromaW, chromaH int, qf QuantFactors) {
 	refBuf := e.refFrames.getRef(refFrameLast)
-	
-	rowProgress := make([]atomic.Int32, mbH)
-	for i := 0; i < mbH; i++ {
-		rowProgress[i].Store(-1)
-	}
+	trackers := newRowTrackers(mbH)
 
 	var wg sync.WaitGroup
 	for y := 0; y < mbH; y++ {
@@ -372,13 +364,11 @@ func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *re
 			defer wg.Done()
 			for mbX := 0; mbX < mbW; mbX++ {
 				if mbY > 0 {
-					for {
-						val := rowProgress[mbY-1].Load()
-						if val >= int32(mbX+1) || (mbX+1 >= mbW && val >= int32(mbW-1)) {
-							break
-						}
-						runtime.Gosched()
+					trackers[mbY-1].mu.Lock()
+					for trackers[mbY-1].col < mbX+1 && !(mbX+1 >= mbW && trackers[mbY-1].col >= mbW-1) {
+						trackers[mbY-1].cond.Wait()
 					}
+					trackers[mbY-1].mu.Unlock()
 				}
 
 				mbIdx := mbY*mbW + mbX
@@ -397,7 +387,10 @@ func (e *Encoder) processInterFrameMBs(frame *Frame, mbs []macroblock, recon *re
 					reconstructIntraMBWithContext(recon, &mbs[mbIdx], &ctx, mbX, mbY, e.width, chromaW, qf)
 				}
 
-				rowProgress[mbY].Store(int32(mbX))
+				trackers[mbY].mu.Lock()
+				trackers[mbY].col = mbX
+				trackers[mbY].cond.Broadcast()
+				trackers[mbY].mu.Unlock()
 			}
 		}(y)
 	}
