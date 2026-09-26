@@ -4,7 +4,7 @@
 ![CI](https://github.com/mendsec/vp8/actions/workflows/ci.yml/badge.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.27.0-blue)
 ![License](https://img.shields.io/github/license/mendsec/vp8)
-![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)
+![Coverage](https://img.shields.io/badge/Coverage-84.5%25-brightgreen)
 
 A high-performance, ultra-low latency VP8 video encoder written **entirely in Go**. 
 
