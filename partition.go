@@ -7,6 +7,7 @@ package vp8
 // VP8 supports 1, 2, 4, or 8 partitions.
 type PartitionCount int
 
+// The partition counts, stored as log2 of the number of partitions.
 const (
 	OnePartition    PartitionCount = 0 // log2(1) = 0
 	TwoPartitions   PartitionCount = 1 // log2(2) = 1
