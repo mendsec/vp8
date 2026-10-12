@@ -1,3 +1,5 @@
+// Command benchmark measures the encoder's speed, bitrate and allocations
+// across a set of resolutions and settings.
 package main
 
 import (
@@ -17,16 +19,16 @@ import (
 
 // BenchmarkConfig represents a test configuration
 type BenchmarkConfig struct {
-	Name           string
-	Width          int
-	Height         int
-	Quality        int // 0-100 or quantizer 0-127
-	KeyframeOnly   bool
-	EnableMotion   bool
-	Threads        int
-	TargetBitrate  int // kbps
-	NumFrames      int
-	RandSeed       int64
+	Name          string
+	Width         int
+	Height        int
+	Quality       int // 0-100 or quantizer 0-127
+	KeyframeOnly  bool
+	EnableMotion  bool
+	Threads       int
+	TargetBitrate int // kbps
+	NumFrames     int
+	RandSeed      int64
 }
 
 // BenchmarkResult stores test results
@@ -145,7 +147,7 @@ func main() {
 	}
 	_ = pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
-	
+
 	fmt.Println("🔧 VP8 Pure Go Encoder Benchmark Tool")
 	fmt.Println("=====================================")
 	fmt.Printf("💻 Go version: %s\n", runtime.Version())
@@ -236,8 +238,8 @@ func runBenchmark(config BenchmarkConfig) BenchmarkResult {
 	result.OutputBytes = totalBytes
 	result.BitrateKbps = (float64(totalBytes) * 8) / durationSeconds / 1000
 
-	result.AllocsPerFrame = int64 /* #nosec G115 */(memStatsAfter.Mallocs-memStatsBefore.Mallocs) / int64(config.NumFrames)
-	result.AllocBytesPerFrame = int64 /* #nosec G115 */(memStatsAfter.TotalAlloc-memStatsBefore.TotalAlloc) / int64(config.NumFrames)
+	result.AllocsPerFrame = int64 /* #nosec G115 */ (memStatsAfter.Mallocs-memStatsBefore.Mallocs) / int64(config.NumFrames)
+	result.AllocBytesPerFrame = int64 /* #nosec G115 */ (memStatsAfter.TotalAlloc-memStatsBefore.TotalAlloc) / int64(config.NumFrames)
 	result.GCPauses = int(memStatsAfter.NumGC - memStatsBefore.NumGC)
 	result.GCTotalTime = gcTotalTime
 	result.PeakMemoryMB = float64(memStatsAfter.HeapInuse) / 1024 / 1024
@@ -279,7 +281,7 @@ func drawPattern(img *image.RGBA, width, height, offset int, rng *rand.Rand) {
 
 	for i := 0; i < 20; i++ {
 		x := (int(rng.Int31n(int32(width))) + offset) % width /* #nosec G115 */
-		y := int(rng.Int31n(int32(height))) /* #nosec G115 */
+		y := int(rng.Int31n(int32(height)))                   /* #nosec G115 */
 		w := int(rng.Int31n(100)) + 50
 		h := int(rng.Int31n(100)) + 50
 

@@ -1,12 +1,12 @@
-# golangci-lint v2 configuration.
-#
-# The version is pinned in .github/workflows/ci.yml rather than tracked with
-# `latest`: `latest` crossing the v1 -> v2 boundary is what broke the Lint job
-# in the first place, and a linter that changes under the project without a
-# commit is a CI failure waiting for the worst moment.
 version: "2"
 
 linters:
+  enable:
+    - govet
+    - staticcheck
+    - revive
+    - gocyclo
+    - misspell
   disable:
     # `unused` reports a dozen encoder paths this package does not call yet:
     # encodeFrameHeader, encodeBPredModes, encodeResidualPartitions,
@@ -15,8 +15,47 @@ linters:
     # ahead of the code that will reach it, and the loop filter in particular
     # is a known gap rather than a leftover. Deleting them to satisfy a linter
     # would throw away work and widen the diff against upstream for nothing.
-    #
-    # This is a blunt instrument: it also means a genuinely orphaned function
-    # will not be reported. That trade is acceptable while the encoder is
-    # still growing into its own surface; revisit once it stops.
     - unused
+  settings:
+    gocyclo:
+      min-complexity: 15
+    revive:
+      rules:
+        # revive's defaults, minus the ones that do not fit this package.
+        # var-naming would rename exported constants such as DCT_3, which
+        # mirror the names in RFC 6386 and libvpx and are part of the API.
+        # unexported-return would mean exporting the mode types or hiding
+        # the SelectBest* functions, an API change either way.
+        # unused-parameter fires on functions that share a signature with
+        # siblings that do use the argument. increment-decrement would turn
+        # ladders such as `+= 4`, `+= 2`, `+= 1` into an odd one out.
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unreachable-code
+        - name: var-declaration
+  exclusions:
+    rules:
+      # Trace and conformance tests walk a whole frame in one function on
+      # purpose; splitting them would only scatter the trace.
+      - path: _test\.go
+        linters:
+          - gocyclo
+
+formatters:
+  enable:
+    - gofmt

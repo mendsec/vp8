@@ -36,6 +36,7 @@ import (
 	"sync"
 )
 
+// Errors returned when an encoder setting is out of range.
 var (
 	ErrInvalidDimensions       = errors.New("width and height must be positive and even")
 	ErrInvalidPartitionCount   = errors.New("partition count must be 0-3 (OnePartition through EightPartitions)")

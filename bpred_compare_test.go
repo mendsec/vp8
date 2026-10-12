@@ -100,10 +100,3 @@ func TestCompareSkipNonSkip(t *testing.T) {
 	tryDecode(data1, "Non-skip")
 	tryDecode(data2, "Skip")
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
