@@ -1,0 +1,46 @@
+name: Feature request
+description: Something the encoder or decoder should do and does not.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If the idea still needs shaping, [Ideas in Discussions](https://github.com/mendsec/vp8/discussions/categories/ideas) is a good place to start. Check the README's Limitations section and GAPS.md first: what you need may already be a known gap.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Encoder
+        - Decoder
+        - API or documentation
+        - Tooling, CI or benchmarks
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what stops you today?
+      placeholder: My screen-sharing stream spends most of its bits on..., because the encoder does not...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The API or behaviour you have in mind. If it is part of the VP8 format, a pointer to the RFC 6386 section or the libvpx function helps.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use now, or other approaches.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to work on this myself.
