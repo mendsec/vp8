@@ -305,13 +305,13 @@ func copyBlockClamped(dst, ref []byte, refW, refH, refX, refY, blockW, blockH in
 	}
 }
 
-// clampCoord clamps a coordinate to the valid range [0, max-1].
-func clampCoord(val, max int) int {
+// clampCoord clamps a coordinate to the valid range [0, limit-1].
+func clampCoord(val, limit int) int {
 	if val < 0 {
 		return 0
 	}
-	if val >= max {
-		return max - 1
+	if val >= limit {
+		return limit - 1
 	}
 	return val
 }
