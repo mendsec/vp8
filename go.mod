@@ -1,4 +1,4 @@
-module github.com/opd-ai/vp8
+module github.com/mendsec/vp8
 
 go 1.27.0
 

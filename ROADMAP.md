@@ -6,7 +6,7 @@
 
 - **Target audience**: Go developers needing a lightweight VP8 encoder for WebRTC applications who want to avoid CGo/libvpx dependencies. This fills a genuine gap—no other production-ready pure-Go VP8 encoder exists in the ecosystem.
 
-- **Architecture**: Single package (`github.com/opd-ai/vp8`) with the following components:
+- **Architecture**: Single package (`github.com/mendsec/vp8`) with the following components:
   - `encoder.go` — Public API and orchestration
   - `bitstream.go` / `interbitstream.go` — Frame header and partition encoding
   - `macroblock.go` — Mode decision and MB processing
