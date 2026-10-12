@@ -1,0 +1,45 @@
+name: Test and Coverage
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Run Tests
+        run: go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Check coverage threshold
+        uses: vladopajic/go-test-coverage@v2
+        with:
+          config: .testcoverage.yml
+
+      - name: Generate Coverage Badge
+        uses: tj-actions/coverage-badge-go@v2
+        if: github.ref == 'refs/heads/develop' # Generate badge only on main branch
+        with:
+          filename: coverage.out
+
+      - name: Commit Coverage Badge
+        if: github.ref == 'refs/heads/develop'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update coverage badge"
+          file_pattern: README.md

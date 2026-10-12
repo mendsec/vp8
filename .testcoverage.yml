@@ -1,0 +1,10 @@
+# (optional) coverage profile file name.
+# Default: coverage.out
+profile: coverage.out
+
+# (optional) Require minimum total coverage.
+# Default: 0
+threshold:
+  file: 0
+  package: 0
+  total: 70
