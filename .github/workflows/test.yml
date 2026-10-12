@@ -13,7 +13,7 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,15 +31,6 @@ jobs:
         with:
           config: .testcoverage.yml
 
-      - name: Generate Coverage Badge
-        uses: tj-actions/coverage-badge-go@v2
-        if: github.ref == 'refs/heads/develop' # Generate badge only on main branch
-        with:
-          filename: coverage.out
-
-      - name: Commit Coverage Badge
-        if: github.ref == 'refs/heads/develop'
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: update coverage badge"
-          file_pattern: README.md
+      # The coverage badge is not written here: develop is protected, so a
+      # direct push from this job is rejected. update-readme.yml proposes
+      # badge changes as a pull request instead.

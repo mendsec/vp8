@@ -5,6 +5,8 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # update-readme.yml dispatches this on its badge pull request; see there.
+  workflow_dispatch:
 
 jobs:
   test:
