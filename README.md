@@ -205,9 +205,10 @@ Every pull request runs tests on three operating systems and two Go versions, `g
 
 Pull requests are welcome, whether it is a faster kernel, a missing encoder feature or a clearer doc.
 
-1. Branch from `develop` and open your pull request against `develop`; see [AGENTS.md](AGENTS.md).
-2. Run `make all` before pushing.
-3. Report security problems privately as described in [SECURITY.md](SECURITY.md).
+- Found a bug, or a stream that decodes differently from libvpx? Open an [issue](https://github.com/mendsec/vp8/issues), with the stream attached if you can.
+- Questions, ideas and show-and-tell go in [Discussions](https://github.com/mendsec/vp8/discussions).
+- For a pull request, branch from `develop`, target `develop` (see [AGENTS.md](AGENTS.md)), and run `make all` before pushing.
+- Report security problems privately, as described in [SECURITY.md](SECURITY.md), not in a public issue.
 
 ## License
 
