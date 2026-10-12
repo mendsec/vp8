@@ -139,6 +139,8 @@ type frameHeader struct {
 //
 // The image is the decoder's own and stays valid only until the next call;
 // copy it to keep it.
+//
+//nolint:gocyclo // One step per stage of a frame, in the order RFC 6386 runs them.
 func (d *Decoder) Decode(data []byte) (*image.YCbCr, error) {
 	if len(data) < 3 {
 		return nil, ErrTruncatedFrame
@@ -254,6 +256,8 @@ func (d *Decoder) restoreProbs(s savedProbs) {
 // readHeader reads the frame header from the first partition (RFC 6386
 // §9.3-9.11, §19.2) and returns the probabilities to restore after the frame
 // if it does not keep its own.
+//
+//nolint:gocyclo // Reads the header fields in bitstream order, one branch per flag.
 func (d *Decoder) readHeader(br *boolDecoder, h *frameHeader) (savedProbs, error) {
 	if h.keyFrame {
 		_ = br.readBit() // color space: VP8 defines only one

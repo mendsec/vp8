@@ -196,6 +196,8 @@ func (d *Decoder) readInterFrameModes(br *boolDecoder, h *frameHeader, mb *decMB
 // findNearMVs derives the nearest, near and best motion vectors and the
 // neighbour counts that pick the mode probabilities (libvpx vp8_find_near_mvs,
 // RFC 6386 §16.3). The three vectors come back clamped to the frame.
+//
+//nolint:gocyclo // Kept branch for branch with vp8_find_near_mvs, like the encoder's.
 func (d *Decoder) findNearMVs(ref uint8, mbX, mbY int) (near, nearest, best motionVector, counts [4]int) {
 	const (
 		cIntra = iota
@@ -341,6 +343,8 @@ func readMVComponent(br *boolDecoder, p *[19]uint8) int {
 
 // readSplitMVs reads a SPLITMV macroblock's partitioning and one vector per
 // partition (libvpx decode_split_mv).
+//
+//nolint:gocyclo // Follows decode_split_mv; the branches are the format's sub-MV contexts.
 func (d *Decoder) readSplitMVs(br *boolDecoder, mb *decMB, mbX, mbY int, best motionVector) {
 	s := br.readTree(splitTree, splitProbs)
 	mb.split = uint8(s)

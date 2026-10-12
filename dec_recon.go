@@ -135,6 +135,8 @@ func (d *Decoder) readResidual(br *boolDecoder, res *mbResidual, top []uint8, le
 // token before its end-of-block, which is the context its neighbours read.
 //
 // Dequantized values are truncated to 16 bits, as libvpx stores them.
+//
+//nolint:gocyclo // The token tree inlined: this is the decoder's hottest loop.
 func (d *Decoder) readBlock(br *boolDecoder, typ, first, ctx int, dcq, acq int16, out *[16]int16) uint8 {
 	probs := &d.coeffProbs[typ]
 	n := first
@@ -416,6 +418,8 @@ func splitChromaMV(sum int) int {
 
 // predictBlock writes the w x h block at (x0, y0) of dst, predicted from ref
 // displaced by (mvx, mvy) eighth pixels.
+//
+//nolint:gocyclo // One branch per edge case of the reference window, kept in one place.
 func predictBlock(dst, ref *decPlane, x0, y0, w, h, mvx, mvy int, bilinear bool) {
 	x, y := x0+(mvx>>3), y0+(mvy>>3)
 	fx, fy := mvx&7, mvy&7
