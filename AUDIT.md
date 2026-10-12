@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Module** | `github.com/opd-ai/vp8` |
+| **Module** | `github.com/mendsec/vp8` |
 | **Purpose** | Pure-Go VP8 encoder supporting I-frames and P-frames with motion estimation (note: `FrameType.InterFrame` is still documented as “not supported” in `frame.go:9-12`, which likely needs updating) |
 | **Target users** | Go developers needing VP8 encoding for WebRTC (pion/rtp) and media applications |
 | **Deployment model** | Library — imported as a Go package |
@@ -14,7 +14,7 @@
 
 ## Audit Scope
 
-- **Packages audited**: 1 (`github.com/opd-ai/vp8`)
+- **Packages audited**: 1 (`github.com/mendsec/vp8`)
 - **Source files**: 16 (excluding test files)
 - **Total functions**: 216 (135 free functions, 81 methods)
 - **Total structs**: 20

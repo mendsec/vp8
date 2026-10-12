@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opd-ai/vp8"
+	"github.com/mendsec/vp8"
 )
 
 // BenchmarkConfig represents a test configuration
