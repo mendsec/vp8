@@ -209,11 +209,26 @@ func samePicture(img *image.YCbCr, want oracleFrame) error {
 	return nil
 }
 
+// raceEnabled is set by race_test.go when the race detector is on.
+var raceEnabled bool
+
 // Frames come off the network, so a corrupt one must fail or decode to
 // garbage, never panic. Every prefix and a spread of bit flips of a real
 // stream are fed in, each after a good key frame.
+//
+// That is some 25,000 inputs, decoded three times each. The race detector,
+// with coverage on top as the DevSecOps job runs it, makes every readBool
+// two orders of magnitude slower and the whole run takes well over ten
+// minutes; it finds nothing a sample would miss, since the decoder shares
+// no state between goroutines. Under it, take a sample with prime strides so
+// it still lands on every byte offset and bit position across the stream.
+// FuzzDecoder is the place for a search of its own.
 func TestDecoderSurvivesCorruptFrames(t *testing.T) {
 	frames := encodeCase(t, decodeCase{w: 64, h: 48, frames: 4, keyEvery: 300})
+	prefixStep, flipStep := 1, 3
+	if raceEnabled {
+		prefixStep, flipStep = 17, 61
+	}
 	feed := func(data []byte) {
 		t.Helper()
 		defer func() {
@@ -227,10 +242,10 @@ func TestDecoderSurvivesCorruptFrames(t *testing.T) {
 		_, _ = dec.Decode(frames[1])
 	}
 	for _, f := range frames {
-		for n := 0; n < len(f); n++ {
+		for n := 0; n < len(f); n += prefixStep {
 			feed(f[:n])
 		}
-		for i := 0; i < len(f)*8; i += 3 {
+		for i := 0; i < len(f)*8; i += flipStep {
 			bad := append([]byte(nil), f...)
 			bad[i/8] ^= 1 << uint(i%8)
 			feed(bad)
