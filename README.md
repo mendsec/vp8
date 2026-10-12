@@ -6,14 +6,14 @@
   <p><strong>A high-performance, ultra-low latency VP8 video encoder written entirely in Go.</strong></p>
 
   <!-- Badges -->
-  <a href="https://pkg.go.dev/github.com/mendsec/vp8"><img src="https://pkg.go.dev/badge/github.com/mendsec/vp8.svg" alt="Go Reference"></a>
+  [![Go Reference](https://pkg.go.dev/badge/github.com/mendsec/vp8.svg)](https://pkg.go.dev/github.com/mendsec/vp8)
   [![Lint](https://github.com/mendsec/vp8/actions/workflows/lint.yml/badge.svg)](https://github.com/mendsec/vp8/actions/workflows/lint.yml)
   [![Test](https://github.com/mendsec/vp8/actions/workflows/test.yml/badge.svg)](https://github.com/mendsec/vp8/actions/workflows/test.yml)
   [![CI](https://github.com/mendsec/vp8/actions/workflows/ci.yml/badge.svg)](https://github.com/mendsec/vp8/actions/workflows/ci.yml)
   [![DevSecOps](https://github.com/mendsec/vp8/actions/workflows/devsecops.yml/badge.svg)](https://github.com/mendsec/vp8/actions/workflows/devsecops.yml)
   ![Go Version](https://img.shields.io/badge/Go-1.27.0-blue)
   ![Coverage](https://img.shields.io/badge/Coverage-88.4%25-brightgreen)
-  <a href="https://github.com/mendsec/vp8/blob/develop/LICENSE"><img src="https://img.shields.io/github/license/mendsec/vp8" alt="License"></a>
+  [![License](https://img.shields.io/github/license/mendsec/vp8)](https://github.com/mendsec/vp8/blob/develop/LICENSE)
 </div>
 
 <br>
