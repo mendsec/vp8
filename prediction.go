@@ -19,6 +19,7 @@ const (
 // chromaMode represents the VP8 intra prediction mode for chroma blocks.
 type chromaMode uint8
 
+// The chroma prediction modes (RFC 6386 §12.2).
 const (
 	DC_PRED_CHROMA chromaMode = iota
 	V_PRED_CHROMA
@@ -418,4 +419,3 @@ func SelectBest8x8ChromaModeUV(
 
 	return bestMode
 }
-

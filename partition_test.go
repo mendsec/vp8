@@ -206,3 +206,19 @@ func TestAssembleMultiPartitionFrame(t *testing.T) {
 		t.Error("Second residual data mismatch")
 	}
 }
+
+func TestPartitionWriter_GetEncoder(t *testing.T) {
+	var probs [4][8][3][11]uint8
+	pw := NewPartitionWriter(2, &probs)
+	enc0 := pw.GetEncoder(0)
+	enc1 := pw.GetEncoder(1)
+	if enc0 == nil {
+		t.Error("enc0 is nil")
+	}
+	if enc1 == nil {
+		t.Error("enc1 is nil")
+	}
+	if enc0 == enc1 {
+		t.Error("enc0 and enc1 should be different instances")
+	}
+}

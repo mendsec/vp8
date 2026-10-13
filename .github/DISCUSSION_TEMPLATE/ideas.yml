@@ -1,0 +1,18 @@
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share an idea for the encoder, the decoder or the project. Once it has taken shape, it can become a [feature request](https://github.com/mendsec/vp8/issues/new?template=feature_request.yml).
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like to see, and what would it make possible?
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Your use case
+      description: Screen sharing, cloud gaming, a camera pipeline, ... Real use cases help prioritise.

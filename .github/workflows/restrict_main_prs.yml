@@ -6,13 +6,17 @@ on:
       - main
     types: [opened, synchronize, reopened]
 
+permissions: {}
+
 jobs:
   enforce-bot-only:
     runs-on: ubuntu-latest
     steps:
       - name: Verify Head Branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [ "${{ github.head_ref }}" != "develop" ]; then
+          if [ "$HEAD_REF" != "develop" ]; then
             echo "❌ Policy Violation: PRs to 'main' must come from 'develop'."
             echo "All human PRs for features/fixes must be directed to the 'develop' branch."
             exit 1

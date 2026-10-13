@@ -283,3 +283,100 @@ func TestAllBModesProduceOutput(t *testing.T) {
 		}
 	}
 }
+
+func TestBPred_Utils(t *testing.T) {
+	// extendLast4
+	buf := make([]byte, 8)
+	extendLast4(buf, 42)
+	for i := 4; i < 8; i++ {
+		if buf[i] != 42 {
+			t.Errorf("extendLast4: buf[%d] = %d, want 42", i, buf[i])
+		}
+	}
+
+	// fill8Bytes
+	var arr8 [8]byte
+	fill8Bytes(&arr8, 99)
+	for i := 0; i < 8; i++ {
+		if arr8[i] != 99 {
+			t.Errorf("fill8Bytes: arr8[%d] = %d, want 99", i, arr8[i])
+		}
+	}
+
+	// computeDCAbove
+	above := []byte{0, 10, 20, 30, 40} // indices 1..4
+	if dc := computeDCAbove(above); dc != 25 {
+		t.Errorf("computeDCAbove = %d, want 25", dc)
+	}
+
+	// computeDCLeft
+	left := []byte{10, 20, 30, 40} // indices 0..3
+	if dc := computeDCLeft(left); dc != 25 {
+		t.Errorf("computeDCLeft = %d, want 25", dc)
+	}
+}
+
+func TestBPred_Extract(t *testing.T) {
+	above := []byte{0, 10, 20, 30, 40, 50, 60, 70, 80}
+
+	a5 := extractAbove5(above)
+	if a5[0] != 10 || a5[4] != 50 {
+		t.Errorf("extractAbove5 failed")
+	}
+
+	a5_short := extractAbove5([]byte{0, 10, 20, 30, 40})
+	if a5_short[0] != 10 || a5_short[4] != 40 {
+		t.Errorf("extractAbove5 short failed")
+	}
+
+	a8 := extractAbove8(above)
+	if a8[0] != 10 || a8[7] != 80 {
+		t.Errorf("extractAbove8 failed")
+	}
+
+	a8_short := extractAbove8([]byte{0, 10, 20, 30, 40})
+	if a8_short[0] != 10 || a8_short[7] != 40 {
+		t.Errorf("extractAbove8 short failed")
+	}
+
+	_, tmA := extract4x4TMAbove(above)
+	if tmA[0] != 10 {
+		t.Errorf("extract4x4TMAbove failed")
+	}
+
+	left := []byte{10, 20, 30, 40}
+	var P byte
+	tmL := extract4x4TMLeft(left, &P)
+	if tmL[0] != 10 {
+		t.Errorf("extract4x4TMLeft failed")
+	}
+}
+
+func TestCompute4x4DC(t *testing.T) {
+	above := []byte{0, 10, 20, 30, 40}
+	left := []byte{10, 20, 30, 40}
+
+	// Both
+	dcBoth := compute4x4DC(above, left)
+	if dcBoth != 25 {
+		t.Errorf("compute4x4DC both failed")
+	}
+
+	// Above only
+	dcAbove := compute4x4DC(above, nil)
+	if dcAbove != 25 {
+		t.Errorf("compute4x4DC above failed")
+	}
+
+	// Left only
+	dcLeft := compute4x4DC(nil, left)
+	if dcLeft != 25 {
+		t.Errorf("compute4x4DC left failed")
+	}
+
+	// None
+	dcNone := compute4x4DC(nil, nil)
+	if dcNone != 128 {
+		t.Errorf("compute4x4DC none failed")
+	}
+}

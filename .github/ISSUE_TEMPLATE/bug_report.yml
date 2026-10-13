@@ -1,0 +1,82 @@
+name: Bug report
+description: The encoder or decoder errors, panics, or produces the wrong output.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. A stream or a few lines of code that reproduce the problem make it far easier to fix.
+
+        A panic on any input, however malformed, is always a bug. Security issues go through [a private advisory](https://github.com/mendsec/vp8/security/advisories/new), not here.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Decoder
+        - Encoder
+        - Both, or not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What goes wrong
+      options:
+        - Panic or crash
+        - Returns an error it should not
+        - Decoded picture differs from libvpx / vpxdec
+        - Encoded stream does not decode, or decodes wrong, in another decoder
+        - Too slow, or uses too much memory
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead. Include the full error or panic message and stack trace.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: |
+        A minimal Go program, or the steps. For decoder problems, attach the stream: drag an `.ivf` file here (zip it if GitHub rejects the extension), or say how it was produced.
+      placeholder: |
+        enc, _ := vp8.NewEncoder(640, 480, 30)
+        enc.SetKeyFrameInterval(30)
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Comparison with libvpx
+      description: |
+        Optional, but the fastest path to a fix for wrong-output bugs. For example, `vpxdec --i420 --md5 stream.ivf`, or the first frame and pixel that differ.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: vp8 version
+      description: The module version or commit, from `go list -m github.com/mendsec/vp8`.
+      placeholder: v0.1.0 or a commit hash
+    validations:
+      required: true
+  - type: input
+    id: go-env
+    attributes:
+      label: Go version and platform
+      description: From `go version`.
+      placeholder: go version go1.27.0 linux/amd64
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Resolution, frame rate, encoder settings, how frames reach the decoder (WebRTC, IVF file, ...).

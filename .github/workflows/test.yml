@@ -1,0 +1,36 @@
+name: Test and Coverage
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Run Tests
+        run: go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Check coverage threshold
+        uses: vladopajic/go-test-coverage@v2
+        with:
+          config: .testcoverage.yml
+
+      # The coverage badge is not written here: develop is protected, so a
+      # direct push from this job is rejected. update-readme.yml proposes
+      # badge changes as a pull request instead.

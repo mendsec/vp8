@@ -1,0 +1,24 @@
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask anything about using the encoder or decoder. If you have found a bug, please [open an issue](https://github.com/mendsec/vp8/issues/new/choose) instead.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What are you trying to do, and where are you stuck?
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Relevant code or settings
+      description: A short snippet, or the encoder settings, resolution and frame rate you use.
+      render: go
+  - type: input
+    id: environment
+    attributes:
+      label: vp8 version, Go version and platform
+      placeholder: vp8 v0.1.0, go1.27.0 linux/amd64

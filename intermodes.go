@@ -84,6 +84,8 @@ type neighbourMV struct {
 // decoder, which is the only thing that matters here.
 //
 // Reference: RFC 6386 §16.3, vp8_find_near_mvs.
+//
+//nolint:gocyclo // Kept branch for branch with vp8_find_near_mvs so the two can be read side by side.
 func findNearMVs(above, left, aboveLeft neighbourMV, mbX, mbY, mbW, mbH int) nearMVs {
 	// mvs[0] doubles as the "best" slot, exactly as in the reference: the
 	// derivation writes candidates from index 1 upward and may later copy the

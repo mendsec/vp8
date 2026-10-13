@@ -639,7 +639,7 @@ func (te *TokenEncoder) encodeContinueBit(blockType, pos, lastNonZero, context i
 	}
 }
 
-// CoeffProbUpdate holds the probability table update flags.
+// CoeffProbUpdateProbs holds the probability table update flags.
 // Default probabilities used when no update is provided.
 var CoeffProbUpdateProbs = [4][8][3][11]uint8{
 	// Block type 0 (Y_DC after WHT)
